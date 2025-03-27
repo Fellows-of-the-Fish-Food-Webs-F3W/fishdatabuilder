@@ -11,3 +11,12 @@ use_gpl3_license()
 devtools::build_readme()
 
 
+# Get the fish data package
+devtools::install_github("PascalIrz/aspe")
+
+
+install.packages("pkgfilecache")
+use_package("pkgfilecache", type = "Imports", min_version = NULL)
+
+# Create R function file
+use_r("get_aspe_data")
