@@ -20,3 +20,9 @@ use_package("pkgfilecache", type = "Imports", min_version = NULL)
 
 # Create R function file
 use_r("get_aspe_data")
+use_r("replace_strings")
+use_r("cleaning_site_location")
+
+# Use test 
+usethis::use_testthat(3)
+use_test("aspe_data")
