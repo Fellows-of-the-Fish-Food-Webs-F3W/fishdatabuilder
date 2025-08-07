@@ -52,6 +52,7 @@
 #' @importFrom utils read.csv2
 #' @export
 clean_station_aspe <- function(
+  #TODO: Switch for data.frame like argument, see helper functions below
   file = "station.csv",
   ref_file = "ref_type_projection.csv",
   crs_to = 4326
@@ -97,3 +98,24 @@ clean_station_aspe <- function(
 
   return(station)
 }
+
+read_raw_data <- function(file_name = NULL) {
+  if (!file_name %in% list_available_files()) {
+  stop(
+    "`file_name` must be in the package cache.
+    Please check file name with `list_available_files()` or
+    `pkgfilecache::list_available(pkg_info = pkgfilecache::get_pkg_info(packagename = 'fishdatabuilder'))`
+    ")
+  }
+  read.csv2(
+    fishdatabuilder::get_optional_data_filepath(filename = file_name),
+    row.names = 1
+  )
+}
+get_raw_station_aspe <- function(file = "station.csv") {
+  read_raw_data(file_name = file)
+}
+get_raw_ref_coordinates_station_aspe <- function(file = "ref_type_projection.csv") {
+  read_raw_data(file_name = file)
+}
+
