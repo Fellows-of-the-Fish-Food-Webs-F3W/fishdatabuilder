@@ -67,15 +67,21 @@ Now that you did that, you should be able to list and load the files in the
 cache of the package:
 
 ```{r file-list}
-library(pkgfilecache)
-pkg_info <- get_pkg_info("fishdatabuilder")
-file_names <- list_available(pkg_info)
-file_names
+list_optional_data()
+```
+
+You can get station data,clean them, and convert all of them in the same coordinates:
+
+```{r}
+clean_station_aspe(
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
+  crs_to = 4326
+  )
 ```
 
 ```{r}
-station_file_path <- get_filepath(pkg_info, file_names[103])
-station <- read.csv2(station_file_path, row.names = 1)
-head(station)
+#| id: list-cache-files
+
 ```
 
