@@ -1,0 +1,80 @@
+---
+title: Draft code and doc
+---
+
+# Let's get location
+
+```r
+#| load-pkg
+library(pkgfilecache)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(devtools)
+build()
+devtools::load_all()
+document()
+test()
+
+sf::st_crs(3)$input
+# optional
+library(tibble)
+```
+
+```r
+#| load-pkg
+devtools::load_all()
+document()
+test()
+```
+
+
+```r
+#| id: proto-function
+list_optional_files()
+
+get_raw_operation_aspe <- function(file = "operation.csv") {
+  read_raw_data(file_name = file)
+}
+get_ref_objective_operation_aspe <- function(file = "ref_objectif.csv") {
+  read_raw_data(file_name = file)
+}
+get_objective_operation_aspe <- function(file = "operation_objectif.csv") {
+  read_raw_data(file_name = file)
+}
+op <- get_raw_operation_aspe() |> as_tibble()
+ref_objective <- get_ref_objective_operation_aspe() |> as_tibble()
+op_objective <- get_objective_operation_aspe() |> as_tibble()
+
+```
+
+
+
+```r
+op_objective %<>%
+  rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
+  left_join(ref_objective) %>%
+  select(ope_id, obj_libelle)
+
+#We might want to check this more close when we have filtered the sites and
+#the operations
+op_objective %>%
+  group_by(obj_libelle) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+  
+```
+
+```r
+# We might want to remove operation with no objective?
+op %>%
+  left_join(op_objective) %>%
+  filter(is.na(obj_libelle))
+```
+
+```r
+#TODO:
+- get the variables right: date, objective, protocols, etc...
+- Change/Translate the variable names
+```
