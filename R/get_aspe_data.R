@@ -48,9 +48,9 @@ download_optional_data <- function() {
 #' in the main folder of the package cache
 #'
 #' @export
-extract_optional_data <- function() {
+extract_optional_data <- function(packagename = "fishdatabuilder") {
   # Get info about the zip file
-  pkg_info <- pkgfilecache::get_pkg_info("fishdatabuilder")
+  pkg_info <- pkgfilecache::get_pkg_info(packagename = packagename)
   local_filenames <- c("zenodo_aspe_csv.zip")
 
   # Get the path of the zip file in the package cache
@@ -86,15 +86,15 @@ extract_optional_data <- function() {
 #'
 #' @description Get file names of optional data files which are available in the
 #' local package cache. You can access these files with
-#' get_optional_data_file().
+#' optional_filepath().
 #'
 #' @return vector of strings. The file names available, relative to the package
 #' cache.
 #'
 #' @export
-list_optional_data <- function() {
-  pkg_info <- pkgfilecache::get_pkg_info("fishdatabuilder")
-  return(pkgfilecache::list_available(pkg_info))
+list_optional_files <- function(packagename = "fishdatabuilder") {
+  pkg_info <- pkgfilecache::get_pkg_info(packagename = packagename)
+  pkgfilecache::list_available(pkg_info = pkg_info)
 }
 
 
@@ -110,8 +110,10 @@ list_optional_data <- function() {
 #' your application code to open the file.
 #'
 #' @export
-get_optional_data_filepath <- function(filename, mustWork = TRUE) {
-  pkg_info <- pkgfilecache::get_pkg_info("fishdatabuilder")
+get_optional_filepath <- function(packagename = "fishdatabuilder",
+  filename = NULL,
+  mustWork = TRUE) {
+  pkg_info <- pkgfilecache::get_pkg_info(packagename = packagename)
   return(pkgfilecache::get_filepath(pkg_info, filename, mustWork = mustWork))
 }
 
@@ -122,8 +124,8 @@ get_optional_data_filepath <- function(filename, mustWork = TRUE) {
 #' failure. See the unlink() documentation for details.
 #'
 #' @export
-delete_all_optional_data <- function() {
-  pkg_info <- pkgfilecache::get_pkg_info("fishdatabuilder")
+delete_all_optional_data <- function(packagename = "fishdatabuilder") {
+  pkg_info <- pkgfilecache::get_pkg_info(packagename = packagename)
   return(pkgfilecache::erase_file_cache(pkg_info))
 }
 

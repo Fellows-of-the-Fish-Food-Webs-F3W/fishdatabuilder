@@ -7,6 +7,9 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
+library(covr)
 library(fishdatabuilder)
 
 test_check("fishdatabuilder")
+cov <- package_coverage()
+print(cov)

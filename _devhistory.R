@@ -26,3 +26,8 @@ use_r("cleaning_site_location")
 # Use test 
 usethis::use_testthat(3)
 use_test("aspe_data")
+use_test("station_cleaning")
+use_test("helpers")
+
+usethis::use_package("mockery", "Suggests")
+usethis::use_package("covr", "Suggests")

@@ -4,7 +4,7 @@
 \alias{delete_all_optional_data}
 \title{Delete all data in the package cache.}
 \usage{
-delete_all_optional_data()
+delete_all_optional_data(packagename = "fishdatabuilder")
 }
 \value{
 integer. The return value of the unlink() call: 0 for success, 1 for

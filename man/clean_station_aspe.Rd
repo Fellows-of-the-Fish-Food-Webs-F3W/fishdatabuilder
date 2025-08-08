@@ -5,17 +5,29 @@
 \title{Clean and standardize station data from ASPE database}
 \usage{
 clean_station_aspe(
-  file = "station.csv",
-  ref_file = "ref_type_projection.csv",
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
   crs_to = 4326
 )
 }
 \arguments{
-\item{file}{Character. Path to the station data file (CSV format).
-Default is "station.csv".}
+\item{station}{A data frame containing station data. By default uses
+\code{get_raw_station_aspe()} to retrieve standard station data.
+Expected columns:
+\itemize{
+\item sta_site_id or site_id (after renaming)
+\item sta_typ_id or typ_id (after renaming)
+\item sta_x or x (after renaming) - X coordinates
+\item sta_y or y (after renaming) - Y coordinates
+}}
 
-\item{ref_file}{Character. Path to the projection reference file (CSV format).
-Default is "ref_type_projection.csv".}
+\item{ref_coordinates}{A data frame containing coordinate reference system data.
+By default uses \code{get_raw_ref_coordinates_station_aspe()}.
+Expected columns:
+\itemize{
+\item typ_id - Matching station type IDs
+\item typ_code_epsg - EPSG codes for each type
+}}
 
 \item{crs_to}{Numeric. The target coordinate reference system (EPSG code)
 for output coordinates. Default is 4326 (WGS84).}
@@ -31,32 +43,34 @@ A data frame with standardized station data containing:
 \description{
 This function processes station data by:
 \itemize{
-\item Removing "sta_" prefixes from column names
+\item Removing "sta_" prefixes from column names (if present)
 \item Joining with projection reference data
 \item Standardizing column names
 \item Converting all coordinates to a specified CRS
-\item Extracting X/Y coordinates from sf geometry
-}
-}
-\details{
-The function expects the input files to be in CSV format with:
-\itemize{
-\item First column as row names for both input files
-\item Station data should contain columns with "sta_" prefix
-\item Station data should contain a "typ_id" column for joining with reference data
-\item Station data should contain "x" "y" columns as coordinates
-\item Reference file should contain "typ_code_epsg" column with source CRS information
+\item Extracting X/Y coordinates from geometry
 }
 }
 \examples{
 \dontrun{
-# Using default file names and WGS84 output
+# Using default data frames and WGS84 output
 clean_data <- clean_station_aspe()
 
-# With custom files and CRS
+# With custom data frames and CRS
+custom_stations <- data.frame(
+  sta_site_id = c("S1", "S2"),
+  sta_typ_id = c(1, 2),
+  sta_x = c(100, 200),
+  sta_y = c(300, 400)
+)
+
+custom_ref <- data.frame(
+  typ_id = 1:2,
+  typ_code_epsg = c(2154, 4326)
+)
+
 clean_data <- clean_station_aspe(
-  file = "my_stations.csv",
-  ref_file = "my_projections.csv",
+  station = custom_stations,
+  ref_coordinates = custom_ref,
   crs_to = 2154  # French RGF93 Lambert-93
 )
 }
