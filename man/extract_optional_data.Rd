@@ -4,7 +4,7 @@
 \alias{extract_optional_data}
 \title{Extract optional data for the package}
 \usage{
-extract_optional_data()
+extract_optional_data(packagename = "fishdatabuilder")
 }
 \value{
 logical vector indicating if the files have been successfully moved
