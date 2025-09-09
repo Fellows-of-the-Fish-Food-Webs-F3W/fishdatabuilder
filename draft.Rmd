@@ -17,7 +17,6 @@ devtools::load_all()
 document()
 test()
 
-sf::st_crs(3)$input
 # optional
 library(tibble)
 ```
@@ -47,7 +46,7 @@ ref_prospection <- get_ref_prospection_method_operation_aspe() |> as_tibble()
 ```r
 
 op_description <- clean_description_operation_aspe()  |> as_tibble()
-# TODO: 
+# TODO:
 # - Move and Document functions
 # - Write some tests
 # - Do we put it merge it with fish operation data? I think not for now
@@ -88,56 +87,6 @@ ti %>%
 
 
 ```r
-clean_operation_aspe <- function(
-  op = get_raw_operation_aspe(),
-  op_objective = get_objective_operation_aspe(),
-  ref_objective = get_ref_objective_operation_aspe(),
-  ref_protocol = get_ref_protocol_operation_aspe(), 
-  sampling_point = get_sampling_point_aspe()
-  ) {
-
-  # Attach objective label to operation ids
-  op_objective <- op_objective %>%
-    dplyr::rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
-    dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) %>%
-    dplyr::select(ope_id, obj_libelle)
-
-  sampling_point <- sampling_point %>%
-    dplyr::select(pop_id, pop_sta_id)
-
-  # Translate protocol label into english
-  ref_protocol <- ref_protocol %>%
-    dplyr::mutate(pro_libelle = recode(pro_libelle,
-      !!!get_rev_vec_name_val(replacement_operation_protocol_label())))
-
-  # Get objectives and protocol labels + station id
-  op <- op %>%
-    dplyr::left_join(op_objective, dplyr::join_by(ope_id)) %>%
-    dplyr::left_join(ref_protocol, dplyr::join_by(ope_pro_id == pro_id)) %>%
-    dplyr::left_join(sampling_point, dplyr::join_by(ope_pop_id == pop_id)) %>%
-    dplyr::rename_with(., ~gsub("ope_", "", .x, fixed = TRUE))
-
-  # Select and remane columns
-  op <- op %>%
-    dplyr::select(all_of(replacement_operation_col())) %>%
-    # without_fish variable into logical variable
-    dplyr::mutate(
-      without_fish = stringr::str_replace_all(
-        without_fish,
-        c("t" = "TRUE", "f" = "FALSE")
-      ),
-      without_fish = as.logical(without_fish)
-    )
-  # Add date in lubridate format
-  op <- op %>%
-    dplyr::mutate(
-      date_time = lubridate::ymd_hms(date),
-      date = lubridate::date(date_time)
-    )
-  # Add some info from desc table?
-  op
-}
-
 op <- clean_operation_aspe() %>%
   as_tibble()
 
