@@ -174,18 +174,25 @@ clean_station_aspe <- function(
 #' Functions to retrieve unprocessed data from the package cache before any cleaning
 #' or transformation is applied.
 #'
-#' @param file Character. Name of the data file in package cache.
-#'   For `get_raw_station_aspe()`, default is `"station.csv"`.
-#'   For `get_raw_ref_coordinates_station_aspe()`, default is `"ref_type_projection.csv"`.
+#' @param file Character. Name of the data file in package cache. Each function
+#'   has a sensible default for the specific data type it accesses.
 #'
 #' @return A data frame containing raw data with original column names and structure
 #'   as provided in the ASPE database.
 #'
 #' @details
-#' These functions provide access to:
+#' These functions provide access to various ASPE database tables:
 #' \describe{
 #'   \item{`get_raw_station_aspe`}{Station location data}
 #'   \item{`get_raw_ref_coordinates_station_aspe`}{Coordinate reference system (CRS) data}
+#'   \item{`get_raw_operation_aspe`}{Fishing operation metadata}
+#'   \item{`get_ref_objective_operation_aspe`}{Operation objective reference table}
+#'   \item{`get_ref_protocol_operation_aspe`}{Sampling protocol reference table}
+#'   \item{`get_ref_isolation_operation_aspe`}{Barrier isolation type reference table}
+#'   \item{`get_ref_prospection_method_operation_aspe`}{Prospection method reference table}
+#'   \item{`get_objective_operation_aspe`}{Operation-objective relationship table}
+#'   \item{`get_sampling_point_aspe`}{Sampling point location data}
+#'   \item{`get_description_operation_aspe`}{Detailed fishing operation descriptions}
 #' }
 #'
 #' @examples
@@ -193,33 +200,102 @@ clean_station_aspe <- function(
 #' # Get station data
 #' stations <- get_raw_station_aspe()
 #' 
-#' # Get CRS reference data
-#' crs_ref <- get_raw_ref_coordinates_station_aspe()
+#' # Get operation data
+#' operations <- get_raw_operation_aspe()
+#' 
+#' # Get reference tables
+#' objectives <- get_ref_objective_operation_aspe()
+#' protocols <- get_ref_protocol_operation_aspe()
 #' 
 #' # Use custom files
 #' custom_stations <- get_raw_station_aspe(file = "custom_stations.csv")
 #' }
 #'
 #' @seealso
-#' - [clean_station_aspe()] for cleaned versions of this data
+#' - [clean_station_aspe()] for cleaned versions of station data
 #' - [list_optional_files()] to see available files in cache
 #' @name raw_data_accessors
 #' @family raw data accessors
-#' @aliases get_raw_station_aspe get_raw_ref_coordinates_station_aspe
 #' @importFrom utils read.csv2
-#' @export get_raw_station_aspe
-#' @export get_raw_ref_coordinates_station_aspe
 NULL
+
+# Individual function implementations with specific details
 
 #' @rdname raw_data_accessors
 #' @details For `get_raw_station_aspe()`: Retrieves station location data including coordinates.
+#' Default file: `"station.csv"`
+#' @export get_raw_station_aspe
 get_raw_station_aspe <- function(file = "station.csv") {
   read_raw_data(file_name = file)
 }
 
 #' @rdname raw_data_accessors
 #' @details For `get_raw_ref_coordinates_station_aspe()`: Retrieves EPSG code references for coordinate systems.
+#' Default file: `"ref_type_projection.csv"`
+#' @export get_raw_ref_coordinates_station_aspe
 get_raw_ref_coordinates_station_aspe <- function(file = "ref_type_projection.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_raw_operation_aspe()`: Retrieves fishing operation metadata.
+#' Default file: `"operation.csv"`
+get_raw_operation_aspe <- function(file = "operation.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_objective_operation_aspe()`: Retrieves operation objective reference data.
+#' Default file: `"ref_objectif.csv"`
+#' @export get_objective_operation_aspe
+get_ref_objective_operation_aspe <- function(file = "ref_objectif.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_protocol_operation_aspe()`: Retrieves sampling protocol reference data.
+#' Default file: `"ref_protocole.csv"`
+#' @export get_ref_protocol_operation_aspe
+get_ref_protocol_operation_aspe <- function(file = "ref_protocole.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_isolation_operation_aspe()`: Retrieves barrier isolation type reference data.
+#' Default file: `"ref_isolement.csv"`
+#' @export get_ref_isolation_operation_aspe
+get_ref_isolation_operation_aspe <- function(file = "ref_isolement.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_prospection_method_operation_aspe()`: Retrieves prospection method reference data.
+#' Default file: `"ref_moyen_prospection.csv"`
+#' @export get_ref_prospection_method_operation_aspe
+get_ref_prospection_method_operation_aspe <- function(file = "ref_moyen_prospection.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_objective_operation_aspe()`: Retrieves operation-objective relationship data.
+#' Default file: `"operation_objectif.csv"`
+get_objective_operation_aspe <- function(file = "operation_objectif.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_sampling_point_aspe()`: Retrieves sampling point location data.
+#' Default file: `"point_prelevement.csv"`
+#' @export get_sampling_point_aspe
+get_sampling_point_aspe <- function(file = "point_prelevement.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_description_operation_aspe()`: Retrieves detailed fishing operation descriptions.
+#' Default file: `"operation_description_peche.csv"`
+#' @export get_description_operation_aspe
+get_description_operation_aspe <- function(file = "operation_description_peche.csv") {
   read_raw_data(file_name = file)
 }
 
