@@ -163,7 +163,7 @@ clean_operation_aspe <- function(
 
   # Translate protocol label into english
   ref_protocol <- ref_protocol %>%
-    dplyr::mutate(pro_libelle = recode(pro_libelle,
+    dplyr::mutate(pro_libelle = dplyr::recode(pro_libelle,
       !!!get_rev_vec_name_val(replacement_operation_protocol_label())))
 
   # Get objectives and protocol labels + station id
@@ -297,9 +297,9 @@ cleaning_elementary_sampling <- function(
     select(all_of(replacement_sampling_col()))
 
   # Adding the number of passage
-  ref_passage <- rename(ref_passage, passage_number = pas_numero)
+  ref_passage <- dplyr::rename(ref_passage, passage_number = pas_numero)
   sampling <- sampling %>%
-    left_join(ref_passage, join_by(prelevement_id == pas_id))
+    dplyr::left_join(ref_passage, dplyr::join_by(prelevement_id == pas_id))
   sampling
 }
 

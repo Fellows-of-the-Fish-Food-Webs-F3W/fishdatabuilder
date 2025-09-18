@@ -79,7 +79,7 @@ document()
 
 
 ```{r file-list}
-head(list_optional_data())
+head(list_optional_files())
 ```
 
 You can get station data, clean them, and convert all of them in the same coordinates:
@@ -101,14 +101,24 @@ head(station)
 op <- clean_operation_aspe()
 head(op)
 
-# There is several operation, to see why
-unique(op$operation_id) |> length()
-nrow(op)
-
 # Cleaned description of operation files:
 op_description <- clean_description_operation_aspe()
 head(op_description)
-#
+
+# Cleaned elementary sampling
+elementary_sampling <- cleaning_elementary_sampling(
+  sampling = get_elementary_sampling_aspe(),
+  ref_sampling = get_ref_elementary_sampling_aspe(),
+  ref_passage = get_ref_passage_aspe()
+)
+head(elementary_sampling)
+
+# Cleaning point group
+point_group <- cleaning_point_group(
+  point_group = get_point_group_aspe(),
+  ref_point_group = get_ref_point_group_aspe()
+)
+head(point_group)
 
 ```
 
