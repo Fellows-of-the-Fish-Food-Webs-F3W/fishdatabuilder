@@ -56,267 +56,142 @@ R package.
 Now that you did that, you should be able to list and load the files in
 the cache of the package:
 
+In development mode:
+
 ``` r
+library(devtools)
+#> Le chargement a nécessité le package : usethis
 library(pkgfilecache)
-pkg_info <- get_pkg_info("fishdatabuilder")
-file_names <- list_available(pkg_info)
-file_names
-#>   [1] "ambiance.csv"                           
-#>   [2] "autres_especes.csv"                     
-#>   [3] "bassin_simp.csv"                        
-#>   [4] "classe_ipr_plus.csv"                    
-#>   [5] "classe_ipr.csv"                         
-#>   [6] "code_wama_commune.csv"                  
-#>   [7] "code_wama_riviere.csv"                  
-#>   [8] "commune.csv"                            
-#>   [9] "departement.csv"                        
-#>  [10] "dispositif_collecte.csv"                
-#>  [11] "dispositif_point.csv"                   
-#>  [12] "dispositif_station.csv"                 
-#>  [13] "facies.csv"                             
-#>  [14] "groupe_points.csv"                      
-#>  [15] "habitat_anguilles.csv"                  
-#>  [16] "habitat.csv"                            
-#>  [17] "historique_environnemental_pp.csv"      
-#>  [18] "intervenant_departement.csv"            
-#>  [19] "libelles.csv"                           
-#>  [20] "localisation_point_wama.csv"            
-#>  [21] "lot_poissons.csv"                       
-#>  [22] "maj_objectif.csv"                       
-#>  [23] "map_pointprelmetier.csv"                
-#>  [24] "materiels.csv"                          
-#>  [25] "mesure_individuelle.csv"                
-#>  [26] "operation_description_peche.csv"        
-#>  [27] "operation_donnees_environnementales.csv"
-#>  [28] "operation_ipr_plus.csv"                 
-#>  [29] "operation_ipr.csv"                      
-#>  [30] "operation_objectif.csv"                 
-#>  [31] "operation_suivi.csv"                    
-#>  [32] "operation.csv"                          
-#>  [33] "parametres_globaux.csv"                 
-#>  [34] "parametres.csv"                         
-#>  [35] "passage.csv"                            
-#>  [36] "pathologie_lot.csv"                     
-#>  [37] "pathologie_poisson.csv"                 
-#>  [38] "point_prelevement.csv"                  
-#>  [39] "poste_intervenant.csv"                  
-#>  [40] "prelevement_elementaire.csv"            
-#>  [41] "probabilite_presence_ipr_plus.csv"      
-#>  [42] "probabilite_presence_ipr.csv"           
-#>  [43] "profil_droit.csv"                       
-#>  [44] "ref_accessibilite.csv"                  
-#>  [45] "ref_bassin.csv"                         
-#>  [46] "ref_categorie_piscicole.csv"            
-#>  [47] "ref_classe_vitesse_courant.csv"         
-#>  [48] "ref_colmatage.csv"                      
-#>  [49] "ref_condition_hydrologique.csv"         
-#>  [50] "ref_droit.csv"                          
-#>  [51] "ref_entite_hydrographique.csv"          
-#>  [52] "ref_espece.csv"                         
-#>  [53] "ref_etat_avancement.csv"                
-#>  [54] "ref_fabricant_materiel.csv"             
-#>  [55] "ref_facies_ambiance.csv"                
-#>  [56] "ref_flag_wama.csv"                      
-#>  [57] "ref_formation_geologique.csv"           
-#>  [58] "ref_fraction_analysee.csv"              
-#>  [59] "ref_granulometrie.csv"                  
-#>  [60] "ref_importance.csv"                     
-#>  [61] "ref_intervenant.csv"                    
-#>  [62] "ref_isolement.csv"                      
-#>  [63] "ref_localisation_ambiance.csv"          
-#>  [64] "ref_logique_3.csv"                      
-#>  [65] "ref_logique_4.csv"                      
-#>  [66] "ref_methode_estimation_poids.csv"       
-#>  [67] "ref_modele_materiel.csv"                
-#>  [68] "ref_moyen_prospection.csv"              
-#>  [69] "ref_niveau_qualification.csv"           
-#>  [70] "ref_objectif.csv"                       
-#>  [71] "ref_occupation_sol.csv"                 
-#>  [72] "ref_ombrage_ambiance.csv"               
-#>  [73] "ref_ombrage_riviere.csv"                
-#>  [74] "ref_ombrage.csv"                        
-#>  [75] "ref_pathologie.csv"                     
-#>  [76] "ref_profil.csv"                         
-#>  [77] "ref_protocole.csv"                      
-#>  [78] "ref_regime_hydrologique.csv"            
-#>  [79] "ref_repeuplement.csv"                   
-#>  [80] "ref_sexe.csv"                           
-#>  [81] "ref_sinuosite.csv"                      
-#>  [82] "ref_situation.csv"                      
-#>  [83] "ref_support_sandre.csv"                 
-#>  [84] "ref_tendance_debit.csv"                 
-#>  [85] "ref_turbidite.csv"                      
-#>  [86] "ref_type_abondance_anguilles.csv"       
-#>  [87] "ref_type_abondance_saumon.csv"          
-#>  [88] "ref_type_abondance.csv"                 
-#>  [89] "ref_type_colmatage.csv"                 
-#>  [90] "ref_type_facies.csv"                    
-#>  [91] "ref_type_groupe_points.csv"             
-#>  [92] "ref_type_illustration.csv"              
-#>  [93] "ref_type_longueur.csv"                  
-#>  [94] "ref_type_lot.csv"                       
-#>  [95] "ref_type_prelevement_elementaire.csv"   
-#>  [96] "ref_type_projection.csv"                
-#>  [97] "ref_unite_hydrographique.csv"           
-#>  [98] "ref_vegetation_dominante.csv"           
-#>  [99] "ref_vegetation.csv"                     
-#> [100] "ref_zone_huet.csv"                      
-#> [101] "referentiel_communes.csv"               
-#> [102] "region.csv"                             
-#> [103] "station.csv"
+load_all()
+#> ℹ Loading fishdatabuilder
+document()
+#> ℹ Updating fishdatabuilder documentation
+#> ℹ Loading fishdatabuilder
 ```
 
 ``` r
-station_file_path <- get_filepath(pkg_info, file_names[103])
-station <- read.csv2(station_file_path, row.names = 1)
+head(list_optional_files())
+#> [1] "ambiance.csv"          "autres_especes.csv"    "bassin_simp.csv"      
+#> [4] "classe_ipr_plus.csv"   "classe_ipr.csv"        "code_wama_commune.csv"
+```
+
+You can get station data, clean them, and convert all of them in the
+same coordinates:
+
+``` r
+station <- clean_station_aspe(
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
+  crs_to = 4326
+  )
+#> Warning: There was 1 warning in `dplyr::mutate()`.
+#> ℹ In argument: `data = purrr::map2(data, typ_code_epsg, convert_crs,
+#>   crs_to = crs_to)`.
+#> ℹ In group 4: `typ_code_epsg = 2989`.
+#> Caused by warning in `CPL_crs_from_input()`:
+#> ! GDAL Message 1: CRS EPSG:2989 is deprecated. Its non-deprecated replacement EPSG:4559 will be used instead. To use the original CRS, set the OSR_USE_NON_DEPRECATED configuration option to NO.
 head(station)
-#>   sta_id sta_code_sandre               sta_libelle_sandre sta_enh_id
-#> 1   1216        02057002 LA MOSELLE À MÉRÉVILLE (CAPTAGE)      21936
-#> 2   1819        02096903    LA SARRE À SARRALBE (CAPTAGE)      22572
-#> 3  47594        05555555     La Torgue au niveau de Varès         NA
-#> 4  12559        04306011     RANCE A SAINT-ANDRE-DES-EAUX         NA
-#> 5  12830        04322006       GUIC A BELLE-ISLE-EN-TERRE         NA
-#> 6  12987        04327010                PENZE A GUIMILIAU         NA
-#>   sta_eligibilite_ipr_iprplus sta_com_code_insee sta_point_km_aval
-#> 1                           t              54364                 0
-#> 2                           t              57628                 0
-#> 3                           t              47316                NA
-#> 4                           t              22274                 0
-#> 5                           t              22005                 0
-#> 6                           t              29074                 0
-#>           sta_localisation_precise sta_code_national_masse_eau
-#> 1 LA MOSELLE À MÉRÉVILLE (CAPTAGE)                       CR211
-#> 2    LA SARRE À SARRALBE (CAPTAGE)                       CR413
-#> 3                  Pont de la D120                        <NA>
-#> 4                    PONT DU BESSO                        <NA>
-#> 5                        PONT COAT                        <NA>
-#> 6                           VIADUC                        <NA>
-#>                                        sta_geometrie sta_typ_id
-#> 1 0101000020E6100000D9A32083AE8F18407A62DF899F4D4840          2
-#> 2 0101000020E6100000AF78B5C434211C402740244FCC7D4840          2
-#> 3 0101000020E61000008A2B2C381341D53FF186479D4B354640          2
-#> 4 0101000020E610000044F6B06D850C00C0DC5D8F9A532F4840          2
-#> 5 0101000020E61000009535398320350BC0449F0CB384424840          2
-#> 6 0101000020E6100000BFBB0772FBD60FC0142C305F0B3E4840          2
-#>   sta_coordonnees_x sta_coordonnees_y sta_date_derniere_modification sta_uti_id
-#> 1          931461.8           6838629            2018-01-01 00:00:00         NA
-#> 2          995029.4           6883408            2018-01-01 00:00:00         NA
-#> 3          487621.0           6372180            2019-02-20 00:00:00         NA
-#> 4          329499.5           6819464            2018-01-01 00:00:00         NA
-#> 5          227820.0           6843530            2018-01-01 00:00:00         NA
-#> 6          184870.1           6843278            2018-01-01 00:00:00         NA
-#>   sta_statut
-#> 1          t
-#> 2          t
-#> 3          t
-#> 4          t
-#> 5          t
-#> 6          t
+#>   site_id          x        y
+#> 1    1216  6.1403141 48.60643
+#> 2    1819  7.0324279 48.98280
+#> 3   47594  0.3320969 44.41637
+#> 4   12559 -2.0061139 48.36974
+#> 5   12830 -3.4009409 48.51967
+#> 6   12987 -3.9799718 48.48472
 ```
 
 ``` r
-list_optional_data()
-#>   [1] "ambiance.csv"                           
-#>   [2] "autres_especes.csv"                     
-#>   [3] "bassin_simp.csv"                        
-#>   [4] "classe_ipr_plus.csv"                    
-#>   [5] "classe_ipr.csv"                         
-#>   [6] "code_wama_commune.csv"                  
-#>   [7] "code_wama_riviere.csv"                  
-#>   [8] "commune.csv"                            
-#>   [9] "departement.csv"                        
-#>  [10] "dispositif_collecte.csv"                
-#>  [11] "dispositif_point.csv"                   
-#>  [12] "dispositif_station.csv"                 
-#>  [13] "facies.csv"                             
-#>  [14] "groupe_points.csv"                      
-#>  [15] "habitat_anguilles.csv"                  
-#>  [16] "habitat.csv"                            
-#>  [17] "historique_environnemental_pp.csv"      
-#>  [18] "intervenant_departement.csv"            
-#>  [19] "libelles.csv"                           
-#>  [20] "localisation_point_wama.csv"            
-#>  [21] "lot_poissons.csv"                       
-#>  [22] "maj_objectif.csv"                       
-#>  [23] "map_pointprelmetier.csv"                
-#>  [24] "materiels.csv"                          
-#>  [25] "mesure_individuelle.csv"                
-#>  [26] "operation_description_peche.csv"        
-#>  [27] "operation_donnees_environnementales.csv"
-#>  [28] "operation_ipr_plus.csv"                 
-#>  [29] "operation_ipr.csv"                      
-#>  [30] "operation_objectif.csv"                 
-#>  [31] "operation_suivi.csv"                    
-#>  [32] "operation.csv"                          
-#>  [33] "parametres_globaux.csv"                 
-#>  [34] "parametres.csv"                         
-#>  [35] "passage.csv"                            
-#>  [36] "pathologie_lot.csv"                     
-#>  [37] "pathologie_poisson.csv"                 
-#>  [38] "point_prelevement.csv"                  
-#>  [39] "poste_intervenant.csv"                  
-#>  [40] "prelevement_elementaire.csv"            
-#>  [41] "probabilite_presence_ipr_plus.csv"      
-#>  [42] "probabilite_presence_ipr.csv"           
-#>  [43] "profil_droit.csv"                       
-#>  [44] "ref_accessibilite.csv"                  
-#>  [45] "ref_bassin.csv"                         
-#>  [46] "ref_categorie_piscicole.csv"            
-#>  [47] "ref_classe_vitesse_courant.csv"         
-#>  [48] "ref_colmatage.csv"                      
-#>  [49] "ref_condition_hydrologique.csv"         
-#>  [50] "ref_droit.csv"                          
-#>  [51] "ref_entite_hydrographique.csv"          
-#>  [52] "ref_espece.csv"                         
-#>  [53] "ref_etat_avancement.csv"                
-#>  [54] "ref_fabricant_materiel.csv"             
-#>  [55] "ref_facies_ambiance.csv"                
-#>  [56] "ref_flag_wama.csv"                      
-#>  [57] "ref_formation_geologique.csv"           
-#>  [58] "ref_fraction_analysee.csv"              
-#>  [59] "ref_granulometrie.csv"                  
-#>  [60] "ref_importance.csv"                     
-#>  [61] "ref_intervenant.csv"                    
-#>  [62] "ref_isolement.csv"                      
-#>  [63] "ref_localisation_ambiance.csv"          
-#>  [64] "ref_logique_3.csv"                      
-#>  [65] "ref_logique_4.csv"                      
-#>  [66] "ref_methode_estimation_poids.csv"       
-#>  [67] "ref_modele_materiel.csv"                
-#>  [68] "ref_moyen_prospection.csv"              
-#>  [69] "ref_niveau_qualification.csv"           
-#>  [70] "ref_objectif.csv"                       
-#>  [71] "ref_occupation_sol.csv"                 
-#>  [72] "ref_ombrage_ambiance.csv"               
-#>  [73] "ref_ombrage_riviere.csv"                
-#>  [74] "ref_ombrage.csv"                        
-#>  [75] "ref_pathologie.csv"                     
-#>  [76] "ref_profil.csv"                         
-#>  [77] "ref_protocole.csv"                      
-#>  [78] "ref_regime_hydrologique.csv"            
-#>  [79] "ref_repeuplement.csv"                   
-#>  [80] "ref_sexe.csv"                           
-#>  [81] "ref_sinuosite.csv"                      
-#>  [82] "ref_situation.csv"                      
-#>  [83] "ref_support_sandre.csv"                 
-#>  [84] "ref_tendance_debit.csv"                 
-#>  [85] "ref_turbidite.csv"                      
-#>  [86] "ref_type_abondance_anguilles.csv"       
-#>  [87] "ref_type_abondance_saumon.csv"          
-#>  [88] "ref_type_abondance.csv"                 
-#>  [89] "ref_type_colmatage.csv"                 
-#>  [90] "ref_type_facies.csv"                    
-#>  [91] "ref_type_groupe_points.csv"             
-#>  [92] "ref_type_illustration.csv"              
-#>  [93] "ref_type_longueur.csv"                  
-#>  [94] "ref_type_lot.csv"                       
-#>  [95] "ref_type_prelevement_elementaire.csv"   
-#>  [96] "ref_type_projection.csv"                
-#>  [97] "ref_unite_hydrographique.csv"           
-#>  [98] "ref_vegetation_dominante.csv"           
-#>  [99] "ref_vegetation.csv"                     
-#> [100] "ref_zone_huet.csv"                      
-#> [101] "referentiel_communes.csv"               
-#> [102] "region.csv"                             
-#> [103] "station.csv"
+# Cleaned operation files:
+op <- clean_operation_aspe()
+head(op)
+#>   operation_id site_id       date                                objective
+#> 1        87711   21356 2022-06-21 RCS – Réseau de Contrôle de Surveillance
+#> 2        87711   21356 2022-06-21        RRP – Réseau de Référence Pérenne
+#> 3        86077    7003 2021-08-31 RCS – Réseau de Contrôle de Surveillance
+#> 4        86230    5443 2021-09-22 RCS – Réseau de Contrôle de Surveillance
+#> 5        87257    5690 2021-08-06 RCS – Réseau de Contrôle de Surveillance
+#> 6        87255    5953 2021-09-30 RCS – Réseau de Contrôle de Surveillance
+#>           protocol without_fish computed_surface           date_time
+#> 1         complete        FALSE            897.0 2022-06-21 09:30:00
+#> 2         complete        FALSE            897.0 2022-06-21 09:30:00
+#> 3 partial_by_point        FALSE            937.5 2021-08-31 09:30:00
+#> 4 partial_by_point        FALSE           1250.0 2021-09-22 10:00:00
+#> 5         complete        FALSE            823.2 2021-08-06 08:15:00
+#> 6         complete        FALSE            319.2 2021-09-30 13:00:00
+
+# Cleaned description of operation files:
+op_description <- clean_description_operation_aspe()
+head(op_description)
+#>   operation_id time_fishing upstream_isolation downstream_isolation width_river
+#> 1        38610            0                net           no_barrier        6.00
+#> 2        38612            0                net           no_barrier        6.00
+#> 3         4402           90         no_barrier           no_barrier        2.70
+#> 4        38613            0                net           no_barrier        6.00
+#> 5        38623           75               <NA>                 <NA>       50.00
+#> 6        38631            0         no_barrier           no_barrier        3.22
+#>   width_left_shore length_left_shore width_right_shore length_right_shore
+#> 1               NA                NA                NA                 NA
+#> 2               NA                NA                NA                 NA
+#> 3                0                 0                 0                  0
+#> 4               NA                NA                NA                 NA
+#> 5               NA                NA                NA                 NA
+#> 6               NA                NA                NA                 NA
+#>   length_sourced instant_temperature
+#> 1            150                  NA
+#> 2            150                  NA
+#> 3            172                14.5
+#> 4            150                  NA
+#> 5            600                  NA
+#> 6             86                  NA
+
+# Cleaned elementary sampling
+elementary_sampling <- cleaning_elementary_sampling(
+  sampling = get_elementary_sampling_aspe(),
+  ref_sampling = get_ref_elementary_sampling_aspe(),
+  ref_passage = get_ref_passage_aspe()
+)
+head(elementary_sampling)
+#>   prelevement_id operation_id prelevement_type passage_number
+#> 1              1         1966          passage              1
+#> 2              2         1966          passage              2
+#> 3              3         1971          passage              1
+#> 4              4         1971          passage              2
+#> 5              5         1983          passage              1
+#> 6              6         1983          passage              2
+
+# Cleaning point group
+point_group <- cleaning_point_group(
+  point_group = get_point_group_aspe(),
+  ref_point_group = get_ref_point_group_aspe()
+)
+#> Joining with `by = join_by(grp_tgp_id)`
+head(point_group)
+#>   grp_id          point_type grp_nombre grp_nombre_points_sans_poisson
+#> 1   7169 complementary_point          1                              0
+#> 2   7563      standard_point         75                             37
+#> 3   7042      standard_point        100                             42
+#> 4   7474 complementary_point          2                              0
+#> 5   7624      standard_point         75                             23
+#> 6   7087 complementary_point          3                              0
+#>   grp_nombre_points_facies_profond grp_nombre_points_facies_courant
+#> 1                                1                                0
+#> 2                                2                               12
+#> 3                              100                                0
+#> 4                                0                                0
+#> 5                               31                               13
+#> 6                                3                                0
+#>   grp_nombre_points_facies_plat grp_nombre_points_berge
+#> 1                             0                       1
+#> 2                            61                      65
+#> 3                             0                     100
+#> 4                             1                       2
+#> 5                            31                      49
+#> 6                             0                       1
+#>   grp_nombre_points_chenal grp_nombre_points_annexe
+#> 1                        0                        0
+#> 2                       10                        0
+#> 3                        0                        0
+#> 4                        0                        1
+#> 5                       26                        0
+#> 6                        2                        0
 ```
