@@ -1,3 +1,4 @@
+#'
 #' Clean and standardize operation data from ASPE database
 #'
 #' Processes fishing operation data by joining objective and protocol information,
@@ -191,6 +192,163 @@ clean_operation_aspe <- function(
     )
   # Add some info from desc table?
   op
+}
+
+#' Clean and standardize elementary sampling data from ASPE database
+#'
+#' Processes elementary sampling data by translating sampling method labels,
+#' joining with reference information, standardizing column names, and adding
+#' passage number information.
+#'
+#' @param sampling A data frame containing elementary sampling data. By default uses 
+#'   `get_elementary_sampling_aspe()` to retrieve raw data. Expected to contain column:
+#'   `pre_tpe_id` (sampling type reference ID).
+#' @param ref_sampling A data frame containing sampling type reference data.
+#'   By default uses `get_ref_elementary_sampling_aspe()`. Expected to contain columns:
+#'   `tpe_id` (sampling type ID), `tpe_libelle` (sampling type label in French).
+#' @param ref_passage A data frame containing passage reference data.
+#'   By default uses `get_ref_passage_aspe()`. Expected to contain columns:
+#'   `pas_id` (passage ID), `pas_numero` (passage number).
+#'
+#' @return A data frame with cleaned elementary sampling data containing:
+#' \itemize{
+#'   \item Standardized column names (without `pre_` prefix)
+#'   \item Translated sampling type labels in English
+#'   \item Added passage number information
+#'   \item Selected and renamed columns based on `replacement_sampling_col()`
+#' }
+#'
+#' @details
+#' The function performs the following transformations:
+#' \itemize{
+#'   \item Translates French sampling method labels to English using 
+#'         `replacement_detail_sampling_label()` and `get_rev_vec_name_val()`
+#'   \item Joins translated sampling type reference data with sampling data
+#'   \item Removes `pre_` prefix from column names for standardization
+#'   \item Selects and renames columns based on the mapping from 
+#'         `replacement_sampling_col()`
+#'   \item Joins passage number information from reference data
+#'   \item Maintains all relevant sampling information with enhanced metadata
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Using default data sources
+#' clean_sampling <- cleaning_elementary_sampling()
+#'
+#' # With custom data frames
+#' clean_sampling <- cleaning_elementary_sampling(
+#'   sampling = my_sampling_data,
+#'   ref_sampling = my_sampling_ref,
+#'   ref_passage = my_passage_ref
+#' )
+#' }
+#'
+#' @importFrom dplyr mutate recode left_join select rename_with rename
+#' @seealso
+#' - [get_elementary_sampling_aspe()] for raw sampling data access
+#' - [get_ref_elementary_sampling_aspe()] for sampling type reference data
+#' - [get_ref_passage_aspe()] for passage reference data
+#' @export
+cleaning_elementary_sampling <- function(
+  sampling = get_elementary_sampling_aspe(),
+  ref_sampling = get_ref_elementary_sampling_aspe(),
+  ref_passage = get_ref_passage_aspe()
+  ) {
+
+  # Input validation
+  if (!is.data.frame(sampling)) stop("sampling must be a data frame")
+  if (!is.data.frame(ref_sampling)) stop("ref_sampling must be a data frame")
+  if (!is.data.frame(ref_passage)) stop("ref_passage must be a data frame")
+ 
+  if (!"pre_tpe_id" %in% names(sampling)) stop("sampling missing pre_tpe_id column")
+ 
+  required_sampling_cols <- c("tpe_id", "tpe_libelle")
+  missing_sampling_cols <- setdiff(required_sampling_cols, names(ref_sampling))
+  if (length(missing_sampling_cols) > 0) {
+    stop("ref_sampling missing required columns: ", paste(missing_sampling_cols, collapse = ", "))
+  }
+ 
+  required_passage_cols <- c("pas_id", "pas_numero")
+  missing_passage_cols <- setdiff(required_passage_cols, names(ref_passage))
+  if (length(missing_passage_cols) > 0) {
+    stop("ref_passage missing required columns: ", paste(missing_passage_cols, collapse = ", "))
+  }
+
+  # Translate labels of sampling method
+  ref_sampling <- ref_sampling %>%
+    dplyr::mutate(
+      tpe_libelle = dplyr::recode(
+        tpe_libelle,
+        !!!get_rev_vec_name_val(replacement_detail_sampling_label())
+      )
+    )
+
+  # Add prelevement libelle to detailled sampling
+  sampling <- sampling %>%
+    dplyr::left_join(
+      dplyr::select(ref_sampling, tpe_id, prelevement_type = tpe_libelle),
+      dplyr::join_by(pre_tpe_id == tpe_id)
+    )
+
+  # Sanatise column names
+  sampling <- sampling %>%
+    dplyr::rename_with(., ~gsub("pre_", "", .x, fixed = TRUE)) %>%
+    select(all_of(replacement_sampling_col()))
+
+  # Adding the number of passage
+  ref_passage <- rename(ref_passage, passage_number = pas_numero)
+  sampling <- sampling %>%
+    left_join(ref_passage, join_by(prelevement_id == pas_id))
+  sampling
+}
+
+#' Clean and standardize point group data from ASPE database
+#'
+#' Processes point group data by joining with reference information, translating
+#' point type labels to English, and standardizing column names and order.
+#'
+#' @param point_group A data frame containing point group data. By default uses 
+#'   `get_point_group_aspe()` to retrieve raw data.
+#' @param ref_point_group A data frame containing point type reference data.
+#'   By default uses `get_ref_point_group_aspe()`.
+#'
+#' @return A data.frame
+#' @importFrom dplyr rename select mutate left_join everything
+#' @export
+cleaning_point_group <- function(
+  point_group = get_point_group_aspe(),
+  ref_point_group = get_ref_point_group_aspe()) {
+
+  # Input validation
+  # TODO: write tests
+  if (!is.data.frame(point_group)) stop("point_group must be a data frame")
+  if (!is.data.frame(ref_point_group)) stop("ref_point_group must be a data frame")
+  if (!"grp_tgp_id" %in% names(point_group)) stop("point_group missing grp_tgp_id column")
+  required_ref_cols <- c("tgp_id", "tgp_libelle")
+  missing_ref_cols <- setdiff(required_ref_cols, names(ref_point_group))
+  if (length(missing_ref_cols) > 0) {
+    stop(
+      "ref_point_group data is missing required columns: ",
+      paste(missing_ref_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  # Rename columns and translate reference labels
+  ref_point_group <- ref_point_group %>%
+    dplyr::rename(grp_tgp_id = tgp_id, point_type = tgp_libelle) %>%
+    dplyr::select(grp_tgp_id, point_type) %>%
+    dplyr::mutate(point_type = recode(
+      point_type,
+      !!!get_rev_vec_name_val(replacement_point_type_label()))
+    )
+
+  # Add reference names to point group
+  point_group %>%
+    dplyr::left_join(ref_point_group) %>%
+    dplyr::select(-grp_tgp_id) %>%
+    dplyr::select(grp_id, point_type, everything())
 }
 
 #' Clean and standardize operation description data from ASPE database

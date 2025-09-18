@@ -299,6 +299,46 @@ get_description_operation_aspe <- function(file = "operation_description_peche.c
   read_raw_data(file_name = file)
 }
 
+#' @rdname raw_data_accessors
+#' @details For `get_elementary_sampling_aspe()`: Retrieves detailed fishing sampling protocol.
+#' Default file: `"prelevement_elementaire.csv"`
+#' @export get_description_operation_aspe
+get_elementary_sampling_aspe <- function(file = "prelevement_elementaire.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_elementary_sampling_aspe()`: Retrieves references for fishing sampling protocol.
+#' Default file: `"ref_type_prelevement_elementaire.csv"`
+#' @export
+get_ref_elementary_sampling_aspe <- function(file = "ref_type_prelevement_elementaire.csv") {
+  read_raw_data(file_name = file)
+}
+#' @rdname raw_data_accessors
+#' @details For `get_ref_passage_aspe()`: Retrieves references for passage sampling protocol, including the number of passage.
+#' Default file: `"passage.csv"`
+#' @export
+get_ref_passage_aspe <- function(file = "passage.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_ref_point_group_aspe()`: Retrieves references for point group sampling protocol, such as sampling points from the bank and the channel.
+#' Default file: `"ref_type_groupe_points.csv"`
+#' @export
+get_ref_point_group_aspe <- function(file = "ref_type_groupe_points.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_point_group_aspe()`: Retrieves point sampling.
+#' Default file: `"groupe_points.csv"`
+#' @export
+get_point_group_aspe <- function(file = "groupe_points.csv") {
+  read_raw_data(file_name = file)
+}
+
+
 #' Read raw data from package cache (internal)
 #'
 #' Internal helper function to read CSV data from the package cache with validation.

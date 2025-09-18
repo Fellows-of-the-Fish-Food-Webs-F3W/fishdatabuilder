@@ -12,6 +12,11 @@
 \alias{get_objective_operation_aspe}
 \alias{get_sampling_point_aspe}
 \alias{get_description_operation_aspe}
+\alias{get_elementary_sampling_aspe}
+\alias{get_ref_elementary_sampling_aspe}
+\alias{get_ref_passage_aspe}
+\alias{get_ref_point_group_aspe}
+\alias{get_point_group_aspe}
 \title{Get raw data from ASPE database}
 \usage{
 get_raw_station_aspe(file = "station.csv")
@@ -33,6 +38,16 @@ get_objective_operation_aspe(file = "operation_objectif.csv")
 get_sampling_point_aspe(file = "point_prelevement.csv")
 
 get_description_operation_aspe(file = "operation_description_peche.csv")
+
+get_elementary_sampling_aspe(file = "prelevement_elementaire.csv")
+
+get_ref_elementary_sampling_aspe(file = "ref_type_prelevement_elementaire.csv")
+
+get_ref_passage_aspe(file = "passage.csv")
+
+get_ref_point_group_aspe(file = "ref_type_groupe_points.csv")
+
+get_point_group_aspe(file = "groupe_points.csv")
 }
 \arguments{
 \item{file}{Character. Name of the data file in package cache. Each function
@@ -90,6 +105,21 @@ Default file: \code{"point_prelevement.csv"}
 
 For \code{get_description_operation_aspe()}: Retrieves detailed fishing operation descriptions.
 Default file: \code{"operation_description_peche.csv"}
+
+For \code{get_elementary_sampling_aspe()}: Retrieves detailed fishing sampling protocol.
+Default file: \code{"prelevement_elementaire.csv"}
+
+For \code{get_ref_elementary_sampling_aspe()}: Retrieves references for fishing sampling protocol.
+Default file: \code{"ref_type_prelevement_elementaire.csv"}
+
+For \code{get_ref_passage_aspe()}: Retrieves references for passage sampling protocol, including the number of passage.
+Default file: \code{"passage.csv"}
+
+For \code{get_ref_point_group_aspe()}: Retrieves references for point group sampling protocol, such as sampling points from the bank and the channel.
+Default file: \code{"ref_type_groupe_points.csv"}
+
+For \code{get_point_group_aspe()}: Retrieves point sampling.
+Default file: \code{"groupe_points.csv"}
 }
 \examples{
 \dontrun{

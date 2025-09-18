@@ -40,13 +40,47 @@ op_objective <- get_objective_operation_aspe() |> as_tibble()
 sampling_point <- get_sampling_point_aspe() |> as_tibble()
 op_description <- get_description_operation_aspe() |> as_tibble()
 ref_isolation <- get_ref_isolation_operation_aspe() |> as_tibble()
+
+detail_sampling <- get_elementary_sampling_aspe() |> as_tibble()
+ref_detail_sampling <- get_ref_elementary_sampling_aspe() |> as_tibble()
 ref_prospection <- get_ref_prospection_method_operation_aspe() |> as_tibble()
+ref_passage <- get_ref_passage_aspe() |> as_tibble()
+
+point_group <- get_point_group_aspe() |> as_tibble()
+ref_point_group <- get_ref_point_group_aspe() |> as_tibble()
+```
+
+```r
+#| id: point-group
+pt <- point_group %>%
+  dplyr::left_join(ref_point_group) %>%
+  dplyr::select(-grp_tgp_id) %>%
+  dplyr::select(grp_id, point_type, everything())
+
+cleaning_point_group() |> as_tibble()
+cleaning_point_group() %>%
+  filter(
+    point_type == "standard_point" & grp_nombre_points_berge >= 0.90*(grp_nombre)
+  )
+
+
+````
+
+
+```{r elementary-sampling}
+ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
+ele_sampling %>%
+  filter(is.na(passage_number))
 ```
 
 ```r
 
+
+```
+
+```r
 op_description <- clean_description_operation_aspe()  |> as_tibble()
-# TODO:
+# TODO:
 # - Move and Document functions
 # - Write some tests
 # - Do we put it merge it with fish operation data? I think not for now
@@ -90,8 +124,28 @@ ti %>%
 op <- clean_operation_aspe() %>%
   as_tibble()
 
-head(op$date)
-library(lubridate)
+# TODO:
+# - There is several operations, to see why
+unique(op$operation_id) |> length()
+nrow(op)
+several_id <- op |>
+  group_by(operation_id) |>
+  summarise(n = n())
+several_id |>
+  filter(n > 1)
+op |>
+  filter(operation_id == 1579)
+
+# It might be because of multiples ids per objective ids 
+# Yes it is!!
+op_objective <- get_objective_operation_aspe() |> as_tibble()
+op_objective |>
+  group_by(opo_ope_id) |>
+  summarise(n = n()) |>
+  filter(n > 1)
+
+  filter(opo_ope_id)
+
 
 ```
 
@@ -102,6 +156,7 @@ library(lubridate)
 #- Change/Translate the variable names
 # We might want to remove operation with no objective?
   filter(is.na(obj_libelle))
+#- Filter operation data so that they have only one objective
 ```
 
 

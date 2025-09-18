@@ -1,6 +1,3 @@
-
-
-
 #' Replacement vector to replace station.csv column names
 #'
 #'
@@ -47,6 +44,14 @@ replacement_operation_description_col <- function() {
 
 }
 
+replacement_sampling_col <- function() {
+  c(
+    prelevement_id = "id",
+    operation_id = "ope_id",
+    prelevement_type = "prelevement_type"
+  )
+}
+
 replacement_prospection_label <- function() {
   c(
     by_foot = "A pied",
@@ -65,7 +70,7 @@ replacement_isolation_label <- function() {
     others = "Autres"
   )
 }
-replacement_operation_protocol_label <- function(variables) {
+replacement_operation_protocol_label <- function() {
     c(
     complete = "Pêche complète à un ou plusieurs passages",
     partial_by_point = "Pêche partielle par points (grand milieu)",
@@ -73,6 +78,20 @@ replacement_operation_protocol_label <- function(variables) {
   )
 }
 
+replacement_detail_sampling_label <- function() {
+    c(
+    passage = "Passage",
+    point_group = "Groupe de points",
+    ambiance = "Ambiance"
+  )
+}
+
+replacement_point_type_label <- function() {
+  c(
+    standard_point = "Points standards",
+    complementary_point = "Points complémentaires"
+  )
+}
 
 #' Reverse a Named Vector (Internal)
 #'
