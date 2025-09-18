@@ -40,6 +40,7 @@ You can install the released version of fishdatabuilder from [GitHub](https://gi
 # install.packages("devtools")
 devtools::install_github("Fellows-of-the-Fish-Food-Webs-F3W/fishdatabuilder")
 ```
+
 ## Starting
 
 We can extract the french fish monitoring data up to 2022. Those data have
@@ -58,6 +59,7 @@ download_optional_data()
 extract_optional_data()
 ```
 
+
 The data are located in the cache folder of the package,
 using the
 [`pkgfilecache`](https://cran.r-project.org/web/packages/pkgfilecache/) R
@@ -66,22 +68,57 @@ package.
 Now that you did that, you should be able to list and load the files in the
 cache of the package:
 
-```{r file-list}
-list_optional_data()
+In development mode:
+
+```{r dev-mode}
+library(devtools)
+library(pkgfilecache)
+load_all()
+document()
 ```
 
-You can get station data,clean them, and convert all of them in the same coordinates:
+
+```{r file-list}
+head(list_optional_files())
+```
+
+You can get station data, clean them, and convert all of them in the same coordinates:
 
 ```{r}
-clean_station_aspe(
+station <- clean_station_aspe(
   station = get_raw_station_aspe(),
   ref_coordinates = get_raw_ref_coordinates_station_aspe(),
   crs_to = 4326
   )
+head(station)
 ```
+
+
 
 ```{r}
 #| id: list-cache-files
+# Cleaned operation files:
+op <- clean_operation_aspe()
+head(op)
+
+# Cleaned description of operation files:
+op_description <- clean_description_operation_aspe()
+head(op_description)
+
+# Cleaned elementary sampling
+elementary_sampling <- cleaning_elementary_sampling(
+  sampling = get_elementary_sampling_aspe(),
+  ref_sampling = get_ref_elementary_sampling_aspe(),
+  ref_passage = get_ref_passage_aspe()
+)
+head(elementary_sampling)
+
+# Cleaning point group
+point_group <- cleaning_point_group(
+  point_group = get_point_group_aspe(),
+  ref_point_group = get_ref_point_group_aspe()
+)
+head(point_group)
 
 ```
 

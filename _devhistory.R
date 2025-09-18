@@ -22,11 +22,13 @@ use_package("pkgfilecache", type = "Imports", min_version = NULL)
 use_r("get_aspe_data")
 use_r("replace_strings")
 use_r("cleaning_site_location")
+use_r("cleaning_operation")
 
 # Use test 
 usethis::use_testthat(3)
 use_test("aspe_data")
 use_test("station_cleaning")
+use_test("operation_cleaning")
 use_test("helpers")
 
 usethis::use_package("mockery", "Suggests")

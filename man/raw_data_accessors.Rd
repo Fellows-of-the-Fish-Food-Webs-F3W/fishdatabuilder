@@ -4,16 +4,54 @@
 \alias{raw_data_accessors}
 \alias{get_raw_station_aspe}
 \alias{get_raw_ref_coordinates_station_aspe}
+\alias{get_raw_operation_aspe}
+\alias{get_ref_objective_operation_aspe}
+\alias{get_ref_protocol_operation_aspe}
+\alias{get_ref_isolation_operation_aspe}
+\alias{get_ref_prospection_method_operation_aspe}
+\alias{get_objective_operation_aspe}
+\alias{get_sampling_point_aspe}
+\alias{get_description_operation_aspe}
+\alias{get_elementary_sampling_aspe}
+\alias{get_ref_elementary_sampling_aspe}
+\alias{get_ref_passage_aspe}
+\alias{get_ref_point_group_aspe}
+\alias{get_point_group_aspe}
 \title{Get raw data from ASPE database}
 \usage{
 get_raw_station_aspe(file = "station.csv")
 
 get_raw_ref_coordinates_station_aspe(file = "ref_type_projection.csv")
+
+get_raw_operation_aspe(file = "operation.csv")
+
+get_ref_objective_operation_aspe(file = "ref_objectif.csv")
+
+get_ref_protocol_operation_aspe(file = "ref_protocole.csv")
+
+get_ref_isolation_operation_aspe(file = "ref_isolement.csv")
+
+get_ref_prospection_method_operation_aspe(file = "ref_moyen_prospection.csv")
+
+get_objective_operation_aspe(file = "operation_objectif.csv")
+
+get_sampling_point_aspe(file = "point_prelevement.csv")
+
+get_description_operation_aspe(file = "operation_description_peche.csv")
+
+get_elementary_sampling_aspe(file = "prelevement_elementaire.csv")
+
+get_ref_elementary_sampling_aspe(file = "ref_type_prelevement_elementaire.csv")
+
+get_ref_passage_aspe(file = "passage.csv")
+
+get_ref_point_group_aspe(file = "ref_type_groupe_points.csv")
+
+get_point_group_aspe(file = "groupe_points.csv")
 }
 \arguments{
-\item{file}{Character. Name of the data file in package cache.
-For \code{get_raw_station_aspe()}, default is \code{"station.csv"}.
-For \code{get_raw_ref_coordinates_station_aspe()}, default is \code{"ref_type_projection.csv"}.}
+\item{file}{Character. Name of the data file in package cache. Each function
+has a sensible default for the specific data type it accesses.}
 }
 \value{
 A data frame containing raw data with original column names and structure
@@ -24,23 +62,76 @@ Functions to retrieve unprocessed data from the package cache before any cleanin
 or transformation is applied.
 }
 \details{
-These functions provide access to:
+These functions provide access to various ASPE database tables:
 \describe{
 \item{\code{get_raw_station_aspe}}{Station location data}
 \item{\code{get_raw_ref_coordinates_station_aspe}}{Coordinate reference system (CRS) data}
+\item{\code{get_raw_operation_aspe}}{Fishing operation metadata}
+\item{\code{get_ref_objective_operation_aspe}}{Operation objective reference table}
+\item{\code{get_ref_protocol_operation_aspe}}{Sampling protocol reference table}
+\item{\code{get_ref_isolation_operation_aspe}}{Barrier isolation type reference table}
+\item{\code{get_ref_prospection_method_operation_aspe}}{Prospection method reference table}
+\item{\code{get_objective_operation_aspe}}{Operation-objective relationship table}
+\item{\code{get_sampling_point_aspe}}{Sampling point location data}
+\item{\code{get_description_operation_aspe}}{Detailed fishing operation descriptions}
 }
 
 For \code{get_raw_station_aspe()}: Retrieves station location data including coordinates.
+Default file: \code{"station.csv"}
 
 For \code{get_raw_ref_coordinates_station_aspe()}: Retrieves EPSG code references for coordinate systems.
+Default file: \code{"ref_type_projection.csv"}
+
+For \code{get_raw_operation_aspe()}: Retrieves fishing operation metadata.
+Default file: \code{"operation.csv"}
+
+For \code{get_ref_objective_operation_aspe()}: Retrieves operation objective reference data.
+Default file: \code{"ref_objectif.csv"}
+
+For \code{get_ref_protocol_operation_aspe()}: Retrieves sampling protocol reference data.
+Default file: \code{"ref_protocole.csv"}
+
+For \code{get_ref_isolation_operation_aspe()}: Retrieves barrier isolation type reference data.
+Default file: \code{"ref_isolement.csv"}
+
+For \code{get_ref_prospection_method_operation_aspe()}: Retrieves prospection method reference data.
+Default file: \code{"ref_moyen_prospection.csv"}
+
+For \code{get_objective_operation_aspe()}: Retrieves operation-objective relationship data.
+Default file: \code{"operation_objectif.csv"}
+
+For \code{get_sampling_point_aspe()}: Retrieves sampling point location data.
+Default file: \code{"point_prelevement.csv"}
+
+For \code{get_description_operation_aspe()}: Retrieves detailed fishing operation descriptions.
+Default file: \code{"operation_description_peche.csv"}
+
+For \code{get_elementary_sampling_aspe()}: Retrieves detailed fishing sampling protocol.
+Default file: \code{"prelevement_elementaire.csv"}
+
+For \code{get_ref_elementary_sampling_aspe()}: Retrieves references for fishing sampling protocol.
+Default file: \code{"ref_type_prelevement_elementaire.csv"}
+
+For \code{get_ref_passage_aspe()}: Retrieves references for passage sampling protocol, including the number of passage.
+Default file: \code{"passage.csv"}
+
+For \code{get_ref_point_group_aspe()}: Retrieves references for point group sampling protocol, such as sampling points from the bank and the channel.
+Default file: \code{"ref_type_groupe_points.csv"}
+
+For \code{get_point_group_aspe()}: Retrieves point sampling.
+Default file: \code{"groupe_points.csv"}
 }
 \examples{
 \dontrun{
 # Get station data
 stations <- get_raw_station_aspe()
 
-# Get CRS reference data
-crs_ref <- get_raw_ref_coordinates_station_aspe()
+# Get operation data
+operations <- get_raw_operation_aspe()
+
+# Get reference tables
+objectives <- get_ref_objective_operation_aspe()
+protocols <- get_ref_protocol_operation_aspe()
 
 # Use custom files
 custom_stations <- get_raw_station_aspe(file = "custom_stations.csv")
@@ -49,7 +140,7 @@ custom_stations <- get_raw_station_aspe(file = "custom_stations.csv")
 }
 \seealso{
 \itemize{
-\item \code{\link[=clean_station_aspe]{clean_station_aspe()}} for cleaned versions of this data
+\item \code{\link[=clean_station_aspe]{clean_station_aspe()}} for cleaned versions of station data
 \item \code{\link[=list_optional_files]{list_optional_files()}} to see available files in cache
 }
 }
