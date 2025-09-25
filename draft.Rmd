@@ -48,6 +48,16 @@ ref_passage <- get_ref_passage_aspe() |> as_tibble()
 
 point_group <- get_point_group_aspe() |> as_tibble()
 ref_point_group <- get_ref_point_group_aspe() |> as_tibble()
+
+species <- get_species_aspe() |> as_tibble()
+
+lot <- get_lot_aspe() |> as_tibble()
+```
+
+
+```r
+#| id: species
+sp <- cleaning_species_ref_aspe() |> as_tibble()
 ```
 
 ```r

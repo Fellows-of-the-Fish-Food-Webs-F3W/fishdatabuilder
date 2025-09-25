@@ -93,6 +93,17 @@ replacement_point_type_label <- function() {
   )
 }
 
+replacement_species_ref_col <- function() {
+  c(
+    species_id = "id",
+    species_code = "code_alternatif",
+    common_name_fr = "nom_commun",
+    latin_name = "nom_latin",
+    maximal_length_mm = "taille_maximale"
+  )
+
+}
+
 #' Reverse a Named Vector (Internal)
 #'
 #' An internal helper function that swaps the names and values of a named vector.
