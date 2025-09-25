@@ -52,7 +52,7 @@
 #'   typ_id = 1:2,
 #'   typ_code_epsg = c(2154, 4326)
 #' )
-#' 
+#'
 #' clean_data <- clean_station_aspe(
 #'   station = custom_stations,
 #'   ref_coordinates = custom_ref,
@@ -81,10 +81,10 @@ clean_station_aspe <- function(
   if (!is.data.frame(ref_coordinates)) {
     stop("`ref_coordinates` must be a data frame", call. = FALSE)
   }
-  
+ 
   required_ref_cols <- c("typ_id", "typ_code_epsg")
   missing_ref_cols <- setdiff(required_ref_cols, names(ref_coordinates))
-  
+ 
   if (length(missing_ref_cols) > 0) {
     stop(
       "Reference data is missing required columns: ",
@@ -338,6 +338,13 @@ get_point_group_aspe <- function(file = "groupe_points.csv") {
   read_raw_data(file_name = file)
 }
 
+#' @rdname raw_data_accessors
+#' @details For `get_species_aspe()`: Retrieves point sampling.
+#' Default file: `"ref_espece.csv"`
+#' @export
+get_species_aspe <- function(file = "ref_espece.csv") {
+  read_raw_data(file_name = file)
+}
 
 #' Read raw data from package cache (internal)
 #'

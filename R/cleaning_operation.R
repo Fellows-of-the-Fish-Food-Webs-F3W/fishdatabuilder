@@ -321,7 +321,6 @@ cleaning_point_group <- function(
   ref_point_group = get_ref_point_group_aspe()) {
 
   # Input validation
-  # TODO: write tests
   if (!is.data.frame(point_group)) stop("point_group must be a data frame")
   if (!is.data.frame(ref_point_group)) stop("ref_point_group must be a data frame")
   if (!"grp_tgp_id" %in% names(point_group)) stop("point_group missing grp_tgp_id column")
@@ -489,4 +488,28 @@ clean_description_operation_aspe <- function(
   op_description %>%
     rename_with(., ~gsub("odp_", "", .x, fixed = TRUE)) %>%
     select(all_of(replacement_operation_description_col()))
+}
+
+
+#' Clean and standardize species reference data from ASPE database
+#'
+#' Clean species reference data by renaming species columns, and translating them.
+#'
+#' @param species A data frame containing species reference data.
+#'   By default uses `get_species_aspe()` to retrieve raw data.
+#'
+#' @return A data frame
+#
+#' @importFrom dplyr select rename_with
+#' @export
+cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
+
+  # Remove column prefix
+  species <- dplyr::rename_with(species, ~gsub("esp_", "", .x, fixed = TRUE))
+
+  # Replace column names
+  species <- dplyr::select(species,
+    dplyr::any_of(replacement_species_ref_col()))
+
+  species
 }

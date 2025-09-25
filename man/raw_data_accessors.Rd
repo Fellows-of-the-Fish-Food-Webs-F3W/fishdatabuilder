@@ -17,6 +17,7 @@
 \alias{get_ref_passage_aspe}
 \alias{get_ref_point_group_aspe}
 \alias{get_point_group_aspe}
+\alias{get_species_aspe}
 \title{Get raw data from ASPE database}
 \usage{
 get_raw_station_aspe(file = "station.csv")
@@ -48,6 +49,8 @@ get_ref_passage_aspe(file = "passage.csv")
 get_ref_point_group_aspe(file = "ref_type_groupe_points.csv")
 
 get_point_group_aspe(file = "groupe_points.csv")
+
+get_species_aspe(file = "ref_espece.csv")
 }
 \arguments{
 \item{file}{Character. Name of the data file in package cache. Each function
@@ -120,6 +123,9 @@ Default file: \code{"ref_type_groupe_points.csv"}
 
 For \code{get_point_group_aspe()}: Retrieves point sampling.
 Default file: \code{"groupe_points.csv"}
+
+For \code{get_species_aspe()}: Retrieves point sampling.
+Default file: \code{"ref_espece.csv"}
 }
 \examples{
 \dontrun{
