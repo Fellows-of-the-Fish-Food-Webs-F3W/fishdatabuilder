@@ -85,8 +85,8 @@ station <- clean_station_aspe(
   crs_to = 4326
   )
 #> Warning: There was 1 warning in `dplyr::mutate()`.
-#> ℹ In argument: `data = purrr::map2(data, typ_code_epsg, convert_crs,
-#>   crs_to = crs_to)`.
+#> ℹ In argument: `data = purrr::map2(data, typ_code_epsg, convert_crs, crs_to =
+#>   crs_to)`.
 #> ℹ In group 4: `typ_code_epsg = 2989`.
 #> Caused by warning in `CPL_crs_from_input()`:
 #> ! GDAL Message 1: CRS EPSG:2989 is deprecated. Its non-deprecated replacement EPSG:4559 will be used instead. To use the original CRS, set the OSR_USE_NON_DEPRECATED configuration option to NO.
@@ -194,4 +194,33 @@ head(point_group)
 #> 4                        0                        1
 #> 5                       26                        0
 #> 6                        2                        0
+
+# Cleaned fish batches (lot_poisson in frence)
+fish_batch <- clean_fish_batch()
+head(fish_batch)
+#>   batch_id prelevement_id operation_id species_code batch_type min_length
+#> 1  1729498          24473        13457          BAF          N         NA
+#> 2  1889634          25727        12427          TRF          N         NA
+#> 3  1658692          23603        11504          TRF          N         NA
+#> 4  1894965          26541        11388          PER          N         NA
+#> 5  1642533          26774        13514          TAN          N         NA
+#> 6  1726467          24421        13034          LPP          N         NA
+#>   max_length weight estimated_weight number mep_id tlo_id
+#> 1         NA     NA               NA      1     NA      2
+#> 2         NA     NA               NA      1     NA      2
+#> 3         NA     NA               NA      1     NA      2
+#> 4         NA     NA               NA      1     NA      2
+#> 5         NA     NA               NA      1     NA      2
+#> 6         NA     NA               NA      1     NA      2
+
+# Cleaned individual measurement of fish from the batches
+ind_measure <- clean_individual_measurement_aspe()
+head(ind_measure)
+#>   measure_id batch_id size
+#> 1   18984995  5375242   68
+#> 2   18984996  5375233  159
+#> 3   18984997  5375233  153
+#> 4   18984998  5375233  154
+#> 5   18984999  5375233  152
+#> 6   18985000  5375243   50
 ```
