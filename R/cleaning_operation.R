@@ -545,7 +545,7 @@ cleaning_ref_batch_type_aspe <- function(
 #'   By default uses `get_fish_batch_aspe()` to retrieve raw data.
 #'
 #' @param batch_ref A data frame containing cleaned batch type reference data.
-#'   By default uses `cleaning_batch_type_aspe()` to retrieve cleaned data.
+#'   By default uses `cleaning_ref_batch_type_aspe()` to retrieve cleaned data.
 #'
 #' @param species_ref A data frame containing cleaned species reference data.
 #'   By default uses `cleaning_species_ref_aspe()` to retrieve cleaned data.
@@ -559,11 +559,11 @@ cleaning_ref_batch_type_aspe <- function(
 #' @export
 clean_fish_batch <- function(
   fish_batch = get_fish_batch_aspe(),
-  batch_ref =  cleaning_batch_type_aspe(),
+  batch_ref =  cleaning_ref_batch_type_aspe(),
   species_ref = cleaning_species_ref_aspe(),
   detail_sampling = cleaning_elementary_sampling()
 ) {
-  # Translate and select columns, or do it before?
+  # Translate and select columns
   fish_batch <- fish_batch %>%
     dplyr::rename_with(., ~gsub("lop_", "", .x, fixed = TRUE)) %>%
     dplyr::select(dplyr::all_of(replacement_batch_col()))
@@ -589,4 +589,35 @@ clean_fish_batch <- function(
       species_code, batch_type, everything())
 
   fish_batch
+}
+
+#' Clean individual measurement data from ASPE database
+#'
+#' Clean data by renaming columns, and translating them. It checks also that all measurements are real measurements.
+#'
+#' @param ind_measure A data frame containing the raw data.
+#'   By default uses `get_individual_measurement_aspe()` to retrieve raw data.
+#'
+#' @return A data frame
+#
+#' @importFrom dplyr select rename_with all_of
+#' @export
+clean_individual_measurement_aspe <- function(
+  ind_measure = get_individual_measurement_aspe()
+) {
+
+  # Check all measure are real measurement
+  if (unique(ind_measure$mei_mesure_reelle) != "t") {
+    warning("Not all measure are real measurements, please check the
+      `mei_mesure_reelle` variable.")
+  }
+
+  # Remove prefix columns and rename (incl. translation)
+  ind_measure <- dplyr::rename_with(ind_measure,
+    ~gsub("mei_", "", .x, fixed = TRUE)
+  ) %>%
+    dplyr::select(
+      dplyr::all_of(replacement_individual_measurement_col())
+    )
+  ind_measure
 }

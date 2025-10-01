@@ -120,5 +120,13 @@ point_group <- cleaning_point_group(
 )
 head(point_group)
 
+# Cleaned fish batches (lot_poisson in frence)
+fish_batch <- clean_fish_batch()
+head(fish_batch)
+
+# Cleaned individual measurement of fish from the batches
+ind_measure <- clean_individual_measurement_aspe()
+head(ind_measure)
+
 ```
 

@@ -127,6 +127,18 @@ replacement_batch_col <- function() {
   )
 }
 
+replacement_individual_measurement_col <- function() {
+  c(
+    measure_id = "id",
+    batch_id = "lop_id",
+    size = "taille"#,
+    #weight = "poids",
+    #estimated_weight = "poids_estime",
+    #mep_id = "mep_id",
+    #tlo_id = "tlo_id"
+  )
+}
+
 #' Reverse a Named Vector (Internal)
 #'
 #' An internal helper function that swaps the names and values of a named vector.

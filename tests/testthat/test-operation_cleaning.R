@@ -276,7 +276,7 @@ test_that("cleaning_point_group maintains row order", {
 })
 
 test_that("Reference table loading works", {
-  batch_type <- cleaning_batch_type_aspe()
+  batch_type <- cleaning_ref_batch_type_aspe()
   expect_s3_class(batch_type, "data.frame")
   expect_setequal(
     names(batch_type),
