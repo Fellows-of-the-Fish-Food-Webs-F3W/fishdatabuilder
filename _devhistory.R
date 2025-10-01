@@ -33,3 +33,6 @@ use_test("helpers")
 
 usethis::use_package("mockery", "Suggests")
 usethis::use_package("covr", "Suggests")
+
+# Ignoring html files
+use_git_ignore("README.html", directory = ".")
