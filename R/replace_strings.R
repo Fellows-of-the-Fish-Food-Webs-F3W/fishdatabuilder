@@ -103,6 +103,29 @@ replacement_species_ref_col <- function() {
   )
 
 }
+replacement_batch_ref_col <- function() {
+  c(
+    batch_type_id = "id",
+    batch_type = "libelle",
+    batch_desc_fr = "libelle_sandre"
+  )
+}
+
+replacement_batch_col <- function() {
+  c(
+    batch_id = "id",
+    prelevement_id = "pre_id",
+    species_id = "esp_id",
+    batch_type_id = "tyl_id",
+    min_length = "longueur_specimens_taille_mini",
+    max_length = "longueur_specimens_taille_maxi",
+    weight = "poids",
+    estimated_weight = "poids_estime",
+    number =  "effectif",
+    mep_id = "mep_id",
+    tlo_id = "tlo_id"
+  )
+}
 
 #' Reverse a Named Vector (Internal)
 #'

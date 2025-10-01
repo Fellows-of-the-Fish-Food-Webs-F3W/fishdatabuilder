@@ -18,6 +18,9 @@
 \alias{get_ref_point_group_aspe}
 \alias{get_point_group_aspe}
 \alias{get_species_aspe}
+\alias{get_ref_type_batch_aspe}
+\alias{get_fish_batch_aspe}
+\alias{get_individual_measurement_aspe}
 \title{Get raw data from ASPE database}
 \usage{
 get_raw_station_aspe(file = "station.csv")
@@ -51,6 +54,12 @@ get_ref_point_group_aspe(file = "ref_type_groupe_points.csv")
 get_point_group_aspe(file = "groupe_points.csv")
 
 get_species_aspe(file = "ref_espece.csv")
+
+get_ref_type_batch_aspe(file = "ref_type_lot.csv")
+
+get_fish_batch_aspe(file = "lot_poissons.csv")
+
+get_individual_measurement_aspe(file = "mesure_individuelle.csv")
 }
 \arguments{
 \item{file}{Character. Name of the data file in package cache. Each function
@@ -126,6 +135,15 @@ Default file: \code{"groupe_points.csv"}
 
 For \code{get_species_aspe()}: Retrieves point sampling.
 Default file: \code{"ref_espece.csv"}
+
+For \code{get_ref_type_batch_aspe()}: Retrieves batch types.
+Default file: \code{"ref_type_lot.csv"}
+
+For \code{get_fish_batch_aspe()}: Retrieves sampled fish batches.
+Default file: \code{"lot_poissons.csv"}
+
+For \code{get_individual_measurement_aspe()}: retrieve individual measurement of fishes.
+Default file: \code{"mesure_individuelle.csv"}
 }
 \examples{
 \dontrun{

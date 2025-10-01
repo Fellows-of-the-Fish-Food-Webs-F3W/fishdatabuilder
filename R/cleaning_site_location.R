@@ -345,6 +345,28 @@ get_point_group_aspe <- function(file = "groupe_points.csv") {
 get_species_aspe <- function(file = "ref_espece.csv") {
   read_raw_data(file_name = file)
 }
+#' @rdname raw_data_accessors
+#' @details For `get_ref_type_batch_aspe()`: Retrieves batch types.
+#' Default file: `"ref_type_lot.csv"`
+#' @export
+get_ref_type_batch_aspe <- function(file = "ref_type_lot.csv") {
+  read_raw_data(file_name = file)
+}
+#' @rdname raw_data_accessors
+#' @details For `get_fish_batch_aspe()`: Retrieves sampled fish batches.
+#' Default file: `"lot_poissons.csv"`
+#' @export
+get_fish_batch_aspe <- function(file = "lot_poissons.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_individual_measurement_aspe()`: retrieve individual measurement of fishes.
+#' Default file: `"mesure_individuelle.csv"`
+#' @export
+get_individual_measurement_aspe <- function(file = "mesure_individuelle.csv") {
+  read_raw_data(file_name = file)
+}
 
 #' Read raw data from package cache (internal)
 #'

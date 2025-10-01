@@ -49,10 +49,29 @@ ref_passage <- get_ref_passage_aspe() |> as_tibble()
 point_group <- get_point_group_aspe() |> as_tibble()
 ref_point_group <- get_ref_point_group_aspe() |> as_tibble()
 
-species <- get_species_aspe() |> as_tibble()
+species <- cleaning_species_ref_aspe() |> as_tibble()
 
-lot <- get_lot_aspe() |> as_tibble()
+ref_batch_type <- get_ref_type_batch_aspe() |> as_tibble()
+fish_batch <- get_fish_batch_aspe() |> as_tibble()
+individual_measurement <- get_individual_measurement_aspe() |> as_tibble()
 ```
+
+```r
+
+ti <- clean_fish_batch(fish_batch = fish_batch)
+
+# HERE
+ind_measure <- tbl(con, in_schema("aspe", "mesure_individuelle"))
+arrange(ind_measure, mei_lop_id)
+
+cleaning_batch_type_aspe() |> as_tibble()
+fish_batch %>%
+  left_join(select(species, species_id, species_code),
+    by = join_by(lop_esp_id == species_id)) %>%
+  left_join(select())
+
+```
+
 
 
 ```r
@@ -78,15 +97,12 @@ cleaning_point_group() %>%
 
 
 ```{r elementary-sampling}
+
 ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
 ele_sampling %>%
   filter(is.na(passage_number))
 ```
 
-```r
-
-
-```
 
 ```r
 op_description <- clean_description_operation_aspe()  |> as_tibble()
