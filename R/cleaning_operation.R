@@ -1,4 +1,3 @@
-#'
 #' Clean and standardize operation data from ASPE database
 #'
 #' Processes fishing operation data by joining objective and protocol information,
@@ -504,12 +503,90 @@ clean_description_operation_aspe <- function(
 #' @export
 cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
 
-  # Remove column prefix
+  # Remove column prefix
   species <- dplyr::rename_with(species, ~gsub("esp_", "", .x, fixed = TRUE))
 
-  # Replace column names
+  # Replace column names
   species <- dplyr::select(species,
     dplyr::any_of(replacement_species_ref_col()))
 
   species
+}
+#' Clean and standardize batch reference data from ASPE database
+#'
+#' Clean batch reference data by renaming columns, and translating them.
+#'
+#' @param ref_batch A data frame containing species reference data.
+#'   By default uses `get_ref_type_batch_aspe()` to retrieve raw data.
+#'
+#' @return A data frame
+#
+#' @importFrom dplyr select rename_with
+#' @export
+cleaning_ref_batch_type_aspe <- function(
+  ref_batch = get_ref_type_batch_aspe()
+) {
+
+  # Remove column prefix
+  ref_batch <- dplyr::rename_with(ref_batch,
+    ~gsub("tyl_", "", .x, fixed = TRUE)
+  )
+  # Replace column names
+  ref_batch <- dplyr::select(ref_batch,
+    dplyr::any_of(replacement_batch_ref_col()))
+  ref_batch
+}
+
+#' Clean and standardize batch reference data from ASPE database
+#'
+#' Clean batch data by renaming columns, and translating them, joining batch names, species code and opration ids.
+#'
+#' @param fish_batch A data frame containing raw batch data.
+#'   By default uses `get_fish_batch_aspe()` to retrieve raw data.
+#'
+#' @param batch_ref A data frame containing cleaned batch type reference data.
+#'   By default uses `cleaning_batch_type_aspe()` to retrieve cleaned data.
+#'
+#' @param species_ref A data frame containing cleaned species reference data.
+#'   By default uses `cleaning_species_ref_aspe()` to retrieve cleaned data.
+#'
+#' @param detail_sampling A data frame containing cleaned elementary sampling data.
+#'   By default uses `cleaning_elementary_sampling()` to retrieve cleaned data.
+#'
+#' @return A data frame
+#
+#' @importFrom dplyr select join_by rename_with all_of left_join
+#' @export
+clean_fish_batch <- function(
+  fish_batch = get_fish_batch_aspe(),
+  batch_ref =  cleaning_batch_type_aspe(),
+  species_ref = cleaning_species_ref_aspe(),
+  detail_sampling = cleaning_elementary_sampling()
+) {
+  # Translate and select columns, or do it before?
+  fish_batch <- fish_batch %>%
+    dplyr::rename_with(., ~gsub("lop_", "", .x, fixed = TRUE)) %>%
+    dplyr::select(dplyr::all_of(replacement_batch_col()))
+
+  fish_batch <- fish_batch %>%
+    # Get batch name
+    dplyr::left_join(
+      dplyr::select(batch_ref, batch_type_id, batch_type),
+      by = dplyr::join_by(batch_type_id)
+    ) %>%
+    # Get species code
+    dplyr::left_join(
+      dplyr::select(species_ref, species_id, species_code),
+      by = dplyr::join_by(species_id)
+    ) %>%
+    # Get operation id from detail_sampling
+    dplyr::left_join(
+      dplyr::select(detail_sampling, prelevement_id, operation_id),
+      by = dplyr::join_by(prelevement_id)
+    ) %>%
+    dplyr::select(-species_id, -batch_type_id) %>%
+    dplyr::select(batch_id, prelevement_id, operation_id,
+      species_code, batch_type, everything())
+
+  fish_batch
 }

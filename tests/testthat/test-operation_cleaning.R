@@ -274,3 +274,19 @@ test_that("cleaning_point_group maintains row order", {
   # Should maintain the shuffled order (not reorder by join)
   expect_equal(result$grp_id, point_group_shuffled$grp_id)
 })
+
+test_that("Reference table loading works", {
+  batch_type <- cleaning_batch_type_aspe()
+  expect_s3_class(batch_type, "data.frame")
+  expect_setequal(
+    names(batch_type),
+    names(replacement_batch_ref_col())
+  )
+
+  species_ref <- cleaning_species_ref_aspe()
+  expect_s3_class(species_ref, "data.frame")
+  expect_setequal(
+    names(species_ref),
+    names(replacement_species_ref_col())
+  )
+})
