@@ -199,7 +199,7 @@ clean_operation_aspe <- function(
 #' joining with reference information, standardizing column names, and adding
 #' passage number information.
 #'
-#' @param sampling A data frame containing elementary sampling data. By default uses 
+#' @param sampling A data frame containing elementary sampling data. By default uses
 #'   `get_elementary_sampling_aspe()` to retrieve raw data. Expected to contain column:
 #'   `pre_tpe_id` (sampling type reference ID).
 #' @param ref_sampling A data frame containing sampling type reference data.
@@ -220,11 +220,11 @@ clean_operation_aspe <- function(
 #' @details
 #' The function performs the following transformations:
 #' \itemize{
-#'   \item Translates French sampling method labels to English using 
+#'   \item Translates French sampling method labels to English using
 #'         `replacement_detail_sampling_label()` and `get_rev_vec_name_val()`
 #'   \item Joins translated sampling type reference data with sampling data
 #'   \item Removes `pre_` prefix from column names for standardization
-#'   \item Selects and renames columns based on the mapping from 
+#'   \item Selects and renames columns based on the mapping from
 #'         `replacement_sampling_col()`
 #'   \item Joins passage number information from reference data
 #'   \item Maintains all relevant sampling information with enhanced metadata
@@ -259,15 +259,15 @@ cleaning_elementary_sampling <- function(
   if (!is.data.frame(sampling)) stop("sampling must be a data frame")
   if (!is.data.frame(ref_sampling)) stop("ref_sampling must be a data frame")
   if (!is.data.frame(ref_passage)) stop("ref_passage must be a data frame")
- 
+
   if (!"pre_tpe_id" %in% names(sampling)) stop("sampling missing pre_tpe_id column")
- 
+
   required_sampling_cols <- c("tpe_id", "tpe_libelle")
   missing_sampling_cols <- setdiff(required_sampling_cols, names(ref_sampling))
   if (length(missing_sampling_cols) > 0) {
     stop("ref_sampling missing required columns: ", paste(missing_sampling_cols, collapse = ", "))
   }
- 
+
   required_passage_cols <- c("pas_id", "pas_numero")
   missing_passage_cols <- setdiff(required_passage_cols, names(ref_passage))
   if (length(missing_passage_cols) > 0) {
@@ -307,7 +307,7 @@ cleaning_elementary_sampling <- function(
 #' Processes point group data by joining with reference information, translating
 #' point type labels to English, and standardizing column names and order.
 #'
-#' @param point_group A data frame containing point group data. By default uses 
+#' @param point_group A data frame containing point group data. By default uses
 #'   `get_point_group_aspe()` to retrieve raw data.
 #' @param ref_point_group A data frame containing point type reference data.
 #'   By default uses `get_ref_point_group_aspe()`.
@@ -418,7 +418,7 @@ clean_description_operation_aspe <- function(
   missing_op_cols <- setdiff(required_op_cols, names(op_description))
   if (length(missing_op_cols) > 0) {
     stop(
-      "Operation description is missing required columns: ", 
+      "Operation description is missing required columns: ",
       paste(missing_op_cols, collapse = ", "),
       call. = FALSE
     )
@@ -593,31 +593,76 @@ clean_fish_batch <- function(
 
 #' Clean individual measurement data from ASPE database
 #'
-#' Clean data by renaming columns, and translating them. It checks also that all measurements are real measurements.
+#' Cleans and standardizes individual fish measurement data, checks that
+#' all measurements are real, joins additional information from batch
+#' and operation data, and returns a standardized set of columns:
+#' `site_id`, `operation_id`, `prelevement_id`, `batch_id`, `measure_id`,
+#' `species_code`, `size`.
 #'
 #' @param ind_measure A data frame containing the raw data.
 #'   By default uses `get_individual_measurement_aspe()` to retrieve raw data.
+#' @param fish_batch Cleaned fish batch data (including `species_code`,
+#'   `prelevement_id`, and `operation_id`). By default: `clean_fish_batch()`.
+#' @param op Cleaned operation data (including `site_id`).
+#'   By default: `clean_operation_aspe()`.
 #'
-#' @return A data frame
+#' @return A `data.frame` with the following columns:
+#' `site_id`, `operation_id`, `prelevement_id`, `batch_id`,
+#' `measure_id`, `species_code`, `size`.
 #
-#' @importFrom dplyr select rename_with all_of
+#' @importFrom dplyr select rename_with all_of left_join join_by relocate distinct
 #' @export
 clean_individual_measurement_aspe <- function(
-  ind_measure = get_individual_measurement_aspe()
+  ind_measure = get_individual_measurement_aspe(),
+  fish_batch  = clean_fish_batch(),
+  op          = clean_operation_aspe()
 ) {
 
-  # Check all measure are real measurement
-  if (unique(ind_measure$mei_mesure_reelle) != "t") {
-    warning("Not all measure are real measurements, please check the
-      `mei_mesure_reelle` variable.")
+  # Check that all measurements are real (handles "t"/TRUE and NA)
+  if (!all(ind_measure$mei_mesure_reelle %in% c("t", TRUE), na.rm = TRUE)) {
+    warning("Some measurements are not marked as real. ",
+            "Please check `mei_mesure_reelle`.")
   }
 
-  # Remove prefix columns and rename (incl. translation)
-  ind_measure <- dplyr::rename_with(ind_measure,
-    ~gsub("mei_", "", .x, fixed = TRUE)
-  ) %>%
-    dplyr::select(
-      dplyr::all_of(replacement_individual_measurement_col())
-    )
+  # Standardize column names in individual measurements
+  ind_measure <- ind_measure %>%
+    dplyr::rename_with(~ gsub("mei_", "", .x, fixed = TRUE)) %>%
+    dplyr::select(dplyr::all_of(replacement_individual_measurement_col()))
+  # Ensure that replacement_individual_measurement_col() includes
+  # at least: "measure_id", "batch_id", "size"
+
+  # Minimal set of columns from fish batch
+  fb_min <- fish_batch %>%
+    dplyr::select(batch_id, prelevement_id, operation_id, species_code) %>%
+    dplyr::distinct()
+
+  # Minimal set of columns from operation
+  op_min <- op %>%
+    dplyr::select(operation_id, site_id) %>%
+    dplyr::distinct()
+
+  # Join chain on ind_measure directly
+  ind_measure <- ind_measure %>%
+    # Add prelevement_id, operation_id, species_code via batch_id
+    dplyr::left_join(fb_min, by = dplyr::join_by(batch_id)) %>%
+    # Add site_id via operation_id
+    dplyr::left_join(op_min, by = dplyr::join_by(operation_id))
+
+  # Final column order
+  wanted <- c("site_id", "operation_id", "prelevement_id",
+              "batch_id", "measure_id", "species_code", "size")
+
+  # Add missing columns if needed to avoid select() errors
+  missing_cols <- setdiff(wanted, names(ind_measure))
+  if (length(missing_cols) > 0) {
+    warning("Missing columns in output: ",
+            paste(missing_cols, collapse = ", "),
+            ". Please check upstream functions.")
+    for (mc in missing_cols) ind_measure[[mc]] <- NA
+  }
+
+  ind_measure <- ind_measure %>%
+    dplyr::select(dplyr::all_of(wanted))
+
   ind_measure
 }

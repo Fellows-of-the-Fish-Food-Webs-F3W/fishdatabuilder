@@ -1,5 +1,5 @@
 test_that("clean_station_aspe works with default inputs", {
-  
+
   result <- clean_station_aspe(
     station = create_test_station(),
     ref_coordinates = create_test_ref()
@@ -26,12 +26,12 @@ test_that("clean_station_aspe works with custom data frames", {
     x = c(10, 20),
     y = c(30, 40)
   )
-  
+
   custom_ref <- data.frame(
     typ_id = 1,
     typ_code_epsg = 4326
   )
-  
+
   result <- clean_station_aspe(
     station = custom_station,
     ref_coordinates = custom_ref
@@ -43,15 +43,15 @@ test_that("clean_station_aspe handles both raw and clean column names", {
   # Test with raw (sta_ prefixed) columns
   raw_station <- create_test_station()
   ref <- create_test_ref()
-  
+
   result_raw <- clean_station_aspe(station = raw_station, ref_coordinates = ref)
-  
+
   # Test with clean columns
   clean_station <- raw_station %>%
     rename_with(~gsub("sta_", "", .x))
-  
+
   result_clean <- clean_station_aspe(station = clean_station, ref_coordinates = ref)
-  
+
   expect_equal(result_raw, result_clean)
 })
 
@@ -59,7 +59,7 @@ test_that("clean_station_aspe handles both raw and clean column names", {
 test_that("clean_station_aspe validates inputs", {
   good_station <- create_test_station()
   good_ref <- create_test_ref()
-  
+
   # Invalid station data
   expect_error(
     clean_station_aspe(
@@ -68,7 +68,7 @@ test_that("clean_station_aspe validates inputs", {
     ),
     "`station` must be a data frame"
   )
-  
+
   # Missing required columns
   bad_station <- good_station %>% select(-sta_typ_id)
   expect_error(
@@ -78,7 +78,7 @@ test_that("clean_station_aspe validates inputs", {
     ),
     "missing required columns"
   )
-  
+
   # Invalid CRS
   expect_error(
     clean_station_aspe(
@@ -112,12 +112,12 @@ test_that("clean_station_aspe handles empty inputs", {
     sta_x = numeric(),
     sta_y = numeric()
   )
- 
+
   empty_ref <- data.frame(
     typ_id = integer(),
     typ_code_epsg = integer()
   )
- 
+
   result <- clean_station_aspe(
     station = empty_station,
     ref_coordinates = empty_ref
@@ -128,7 +128,7 @@ test_that("clean_station_aspe handles empty inputs", {
 test_that("clean_station_aspe handles NA coordinates", {
   na_station <- create_test_station()
   na_station$sta_x[1] <- NA
- 
+
   # Expect error bc sf::st_as_sf() does not handle missing coordinates
   expect_error(
       result <- clean_station_aspe(
@@ -142,18 +142,18 @@ test_that("clean_station_aspe handles NA coordinates", {
 })
 
 test_that("end-to-end workflow works", {
-  
+
   # Get raw data
   raw_station <- create_test_station()
   raw_ref <- create_test_ref()
-  
+
   # Process data
   clean_data <- clean_station_aspe(
     station = raw_station,
     ref_coordinates = raw_ref,
     crs_to = 4326
   )
-  
+
   # Verify output
   expect_s3_class(clean_data, "data.frame")
   expect_equal(nrow(clean_data), nrow(raw_station))
