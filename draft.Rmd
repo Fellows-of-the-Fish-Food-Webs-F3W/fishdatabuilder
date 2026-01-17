@@ -144,11 +144,7 @@ ele_sampling %>%
 
 
 ```r
-op_description <- clean_description_operation_aspe()  |> as_tibble()
-# TODO:
-# - Move and Document functions
-# - Write some tests
-# - Do we put it merge it with fish operation data? I think not for now
+op_description <- clean_description_operation_aspe() |> as_tibble()
 ```
 
 
@@ -170,11 +166,12 @@ op_objective %>%
   group_by(obj_libelle) %>%
   summarise(n = n()) %>%
   arrange(desc(n))
-  
+
 ```
 
 ```r
 |# ref-protocol
+
 ti <- op %>%
   left_join(ref_protocol, join_by(ope_pro_id == pro_id))
 ti %>%
@@ -182,9 +179,6 @@ ti %>%
   summarise(n = n()) %>%
   arrange(desc(n))
 ```
-
-
-
 
 
 ```r

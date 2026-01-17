@@ -1,3 +1,189 @@
+#' Filter operation IDs based on excluded objectives
+#'
+#' Extracts operation IDs that do not have objectives matching a specified
+#' exclusion list. Useful for filtering out operations with specific objective
+#' types (e.g., restoration or population monitoring) from analysis datasets.
+#'
+#' @param op A data frame containing cleaned operation data. By default uses 
+#'   `clean_operation_aspe()` to retrieve processed operation data. Expected to 
+#'   contain columns: `operation_id` and `objective`.
+#' @param objective_to_exclude A character vector of objective labels to exclude.
+#'   By default uses `vec_op_objective_to_exclude()` which provides sensible
+#'   defaults for excluding restoration and population monitoring objectives.
+#'
+#' @return A vector of operation IDs (type depends on the input `operation_id`
+#'   column) containing only operations whose objectives are not in the
+#'   exclusion list.
+#'
+#' @details
+#' The function performs the following steps:
+#' \itemize{
+#'   \item Selects only the `operation_id` and `objective` columns from the
+#'         input operation data
+#'   \item Unnests the `objective` column (if it contains list-columns or
+#'         multiple values per operation)
+#'   \item Filters out operations where any objective matches the exclusion list
+#'   \item Returns a vector of unique operation IDs that pass the filter
+#' }
+#'
+#' Note: Operations are excluded if *any* of their objectives match the
+#' exclusion list. Operations can have multiple objectives, and the function
+#' uses `tidyr::unnest()` to handle this appropriately.
+#'
+#' @examples
+#' \dontrun{
+#' # Using default exclusions (restoration and population monitoring objectives)
+#' valid_op_ids <- filter_operation_id()
+#' 
+#' # With custom operation data
+#' clean_ops <- clean_operation_aspe()
+#' valid_ids <- filter_operation_id(op = clean_ops)
+#' 
+#' # With custom exclusion list
+#' custom_exclusions <- c("Suivi de restauration", "Suivi des populations")
+#' custom_ids <- filter_operation_id(objective_to_exclude = custom_exclusions)
+#' 
+#' # Use in filtering other datasets
+#' filtered_sampling <- sampling_data %>%
+#'   filter(operation_id %in% filter_operation_id())
+#' }
+#'
+#' @importFrom dplyr select filter
+#' @importFrom tidyr unnest
+#' @seealso
+#' - [clean_operation_aspe()] for cleaned operation data
+#' - [vec_op_objective_to_exclude()] for generating exclusion lists
+#' - [dplyr::filter()] for general data filtering
+#' - [tidyr::unnest()] for handling nested data structures
+#' @export
+filter_operation_id <- function(
+  op = clean_operation_aspe(),
+  objective_to_exclude = vec_op_objective_to_exclude()
+) {
+
+  # Get initial count
+  initial_count <- length(unique(op$operation_id))
+
+  op <- op %>%
+    dplyr::select(operation_id, objective) %>%
+    tidyr::unnest(cols = c(objective)) %>%
+    dplyr::filter(!objective %in% objective_to_exclude)
+
+  op_id <- unique(op$operation_id)
+  final_count <- length(op_id)
+
+  if (final_count == 0) {
+    warning("No operations remain after filtering", call. = FALSE)
+  } else if (final_count < initial_count / 2) {
+    warning("More than 50% of operations filtered out", call. = FALSE)
+  }
+
+  # Ensure unique operation IDs
+  op_id
+}
+
+#' Generate vector of operation objectives to exclude
+#'
+#' Creates a vector of operation objective labels to exclude from analysis based
+#' on specified criteria. Useful for filtering operations in data processing pipelines.
+#'
+#' @param ref_protocol A data frame containing protocol reference data. 
+#'   By default uses `get_ref_objective_operation_aspe()`. This parameter is 
+#'   included for API consistency but not used in the current implementation.
+#' @param restoration Logical. If `FALSE` (default), restoration-related objectives
+#'   will be included in the exclusion list. If `TRUE`, restoration objectives
+#'   will not be excluded.
+#' @param population_monitoring Logical. If `FALSE` (default), population monitoring
+#'   objectives will be included in the exclusion list. If `TRUE`, population
+#'   monitoring objectives will not be excluded.
+#' @param keep_NA Logical. If `FALSE` (default), `NA` values will be included in
+#'   the exclusion list. If `TRUE`, `NA` values will not be excluded.
+#'
+#' @return A character vector containing objective labels to exclude. The vector
+#'   may contain:
+#'   \itemize{
+#'     \item Restoration-related objective labels (if `restoration = FALSE`)
+#'     \item Population monitoring objective labels (if `population_monitoring = FALSE`)
+#'     \item `NA` (if `keep_NA = FALSE`)
+#'   }
+#'
+#' @details
+#' The function categorizes objectives into two groups for optional exclusion:
+#' 
+#' **Restoration objectives** (excluded when `restoration = FALSE`):
+#' \itemize{
+#'   \item "RNSORMCE – Réseau National de Suivi des Opérations de Restauration hydroMorphologiques des Cours d'Eau"
+#'   \item "Sauvetage - Transfert"
+#'   \item "Suivi de restauration"
+#' }
+#' 
+#' **Population monitoring objectives** (excluded when `population_monitoring = FALSE`):
+#' \itemize{
+#'   \item "Suivi des populations de saumons"
+#'   \item "Suivi des populations d'anguilles"
+#'   \item "Suivi des populations de truites"
+#' }
+#' 
+#' Note: The `ref_protocol` parameter is currently not used in the function but
+#' is maintained for potential future enhancements and API consistency with
+#' similar functions in the package.
+#'
+#' @examples
+#' \dontrun{
+#' # Exclude all non-standard objectives (default behavior)
+#' exclude_all <- vec_op_objective_to_exclude()
+#' 
+#' # Keep restoration objectives but exclude population monitoring
+#' exclude_pop_only <- vec_op_objective_to_exclude(restoration = TRUE)
+#' 
+#' # Keep everything (empty exclusion list)
+#' exclude_none <- vec_op_objective_to_exclude(
+#'   restoration = TRUE,
+#'   population_monitoring = TRUE,
+#'   keep_NA = TRUE
+#' )
+#' 
+#' # Use in filtering operations
+#' clean_ops <- operations %>%
+#'   filter(!objective %in% vec_op_objective_to_exclude())
+#' }
+#'
+#' @seealso
+#' - [clean_operation_aspe()] which might use this exclusion list
+#' - [get_ref_objective_operation_aspe()] for accessing objective reference data
+#' @export
+vec_op_objective_to_exclude <- function(
+  ref_protocol = get_ref_objective_operation_aspe(),
+  restoration = FALSE,
+  restoration_objective = c(
+    "RNSORMCE – Réseau National de Suivi des Opérations de Restauration hydroMorphologiques des Cours d'Eau",
+    "Sauvetage - Transfert",
+    "Suivi de restauration"
+  ),
+  population_monitoring = FALSE,
+  population_objective = c(
+    "Suivi des populations de saumons",
+    "Suivi des populations d'anguilles",
+    "Suivi des populations de truites"
+  ),
+  keep_NA = FALSE
+) {
+
+
+  to_exclude <- c()
+
+  if (restoration == FALSE) {
+    to_exclude <- append(to_exclude, restoration_objective)
+  }
+  if (population_monitoring == FALSE) {
+    to_exclude <- append(to_exclude, population_objective)
+  }
+  if (keep_NA == FALSE) {
+    to_exclude <- append(to_exclude, NA_character_)
+  }
+  to_exclude
+}
+
 #' Clean and standardize operation data from ASPE database
 #'
 #' Processes fishing operation data by joining objective and protocol information,
@@ -155,7 +341,10 @@ clean_operation_aspe <- function(
   op_objective <- op_objective %>%
     dplyr::rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
     dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) %>%
-    dplyr::select(ope_id, obj_libelle)
+    dplyr::select(ope_id, objective = obj_libelle) %>%
+    # Nest objectives because operations can have several objectives
+    group_by(ope_id) %>%
+    nest(obj_libelle = c(objective))
 
   sampling_point <- sampling_point %>%
     dplyr::select(pop_id, pop_sta_id)
@@ -190,6 +379,8 @@ clean_operation_aspe <- function(
       date = lubridate::date(date_time)
     )
   # Add some info from desc table?
+  # Test that we have unique operation_id (i.e. no duplicates):
+  stopifnot(length(unique(op$operation_id)) == nrow(op))
   op
 }
 
