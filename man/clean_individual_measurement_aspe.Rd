@@ -5,16 +5,30 @@
 \title{Clean individual measurement data from ASPE database}
 \usage{
 clean_individual_measurement_aspe(
-  ind_measure = get_individual_measurement_aspe()
+  ind_measure = get_individual_measurement_aspe(),
+  fish_batch = clean_fish_batch(),
+  op = clean_operation_aspe()
 )
 }
 \arguments{
 \item{ind_measure}{A data frame containing the raw data.
 By default uses \code{get_individual_measurement_aspe()} to retrieve raw data.}
+
+\item{fish_batch}{Cleaned fish batch data (including \code{species_code},
+\code{prelevement_id}, and \code{operation_id}). By default: \code{clean_fish_batch()}.}
+
+\item{op}{Cleaned operation data (including \code{site_id}).
+By default: \code{clean_operation_aspe()}.}
 }
 \value{
-A data frame
+A \code{data.frame} with the following columns:
+\code{site_id}, \code{operation_id}, \code{prelevement_id}, \code{batch_id},
+\code{measure_id}, \code{species_code}, \code{size}.
 }
 \description{
-Clean data by renaming columns, and translating them. It checks also that all measurements are real measurements.
+Cleans and standardizes individual fish measurement data, checks that
+all measurements are real, joins additional information from batch
+and operation data, and returns a standardized set of columns:
+\code{site_id}, \code{operation_id}, \code{prelevement_id}, \code{batch_id}, \code{measure_id},
+\code{species_code}, \code{size}.
 }
