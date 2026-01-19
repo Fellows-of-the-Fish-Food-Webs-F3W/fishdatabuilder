@@ -23,6 +23,7 @@ use_r("get_aspe_data")
 use_r("replace_strings")
 use_r("cleaning_site_location")
 use_r("cleaning_operation")
+use_r("fish_batches")
 
 # Use test 
 usethis::use_testthat(3)
@@ -30,6 +31,11 @@ use_test("aspe_data")
 use_test("station_cleaning")
 use_test("operation_cleaning")
 use_test("helpers")
+use_test("gen_size_from_fish_batch")
 
 usethis::use_package("mockery", "Suggests")
 usethis::use_package("covr", "Suggests")
+usethis::use_package("truncdist", "Suggests")
+
+
+

@@ -63,6 +63,55 @@ ind_measure <- clean_individual_measurement_aspe(
 ```
 
 
+```r
+op <- clean_operation_aspe() %>%
+  as_tibble()
+```
+
+
+```r
+options(mc.cores = 10)
+operation_id_sample <- sample(op$operation_id, 1000)
+batch_test <- fish_batch %>%
+  filter(operation_id %in% operation_id_sample)
+measure_test <- ind_measure %>%
+  filter(operation_id %in% operation_id_sample)
+test <- get_size_from_batch(
+      batch = batch_test,
+      id_var = batch_id,
+      batch_type_var = batch_type,
+      nb_var = number,
+      min_var = min_length,
+      max_var = max_length,
+      species = species_code,
+      measure = measure_test,
+      measure_id_var = batch_id,
+      size_var = size)
+```
+
+```r
+to <- test %>%
+  unnest(cols = size_mm)
+max(to$size_mm, na.rm = TRUE)
+to %>%
+  filter(size_mm > 1000)
+
+batch_test_one <- batch_test[5, ]
+measure_test_one <- ind_measure %>%
+  filter(operation_id %in% batch_test_one$operation_id)
+gen_fish_from_batch(
+      id = batch_test_one[["batch_id"]],
+      type = batch_test_one[["batch_type"]],
+      min_size = batch_test_one[["min_length"]],
+      max_size = batch_test_one[["max_length"]],
+      nb = batch_test_one[["number"]],
+      ind_measure = measure_test_one,
+      ind_id = "batch_id",
+      ind_size = "size")
+```
+
+
+
 
 ```r
 #| id: species
@@ -136,34 +185,6 @@ ti %>%
 
 
 
-```r
-op <- clean_operation_aspe() %>%
-  as_tibble()
-
-# TODO:
-# - There is several operations, to see why
-unique(op$operation_id) |> length()
-nrow(op)
-several_id <- op |>
-  group_by(operation_id) |>
-  summarise(n = n())
-several_id |>
-  filter(n > 1)
-op |>
-  filter(operation_id == 1579)
-
-# It might be because of multiples ids per objective ids 
-# Yes it is!!
-op_objective <- get_objective_operation_aspe() |> as_tibble()
-op_objective |>
-  group_by(opo_ope_id) |>
-  summarise(n = n()) |>
-  filter(n > 1)
-
-  filter(opo_ope_id)
-
-
-```
 
 
 ```r
