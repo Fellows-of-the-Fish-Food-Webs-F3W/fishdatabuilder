@@ -440,7 +440,9 @@ test_that("type S/L works with NA", {
         max_var = max,
         species = species,
         measure = measure,
-        size_var = size),
+        size_var = size)
+
+    expect_length(na.omit(unlist(output$size_mm)), 66)
     })
 
 test_that("filter of batch measure measure works", {
