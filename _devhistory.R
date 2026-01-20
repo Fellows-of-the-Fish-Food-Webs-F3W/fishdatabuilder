@@ -32,6 +32,8 @@ use_test("station_cleaning")
 use_test("operation_cleaning")
 use_test("helpers")
 use_test("gen_size_from_fish_batch")
+use_test("filter-operation-batch-measure")
+
 
 usethis::use_package("mockery", "Suggests")
 usethis::use_package("covr", "Suggests")

@@ -56,18 +56,83 @@ raw_individual_measurement <- get_individual_measurement_aspe() |> as_tibble()
 ```
 
 ```r
+test_filter_operation_batch_measure(
+      op_objective_to_exclude = c("Nonexistent Objective", "Objective A")
+    )
+```
+
+```r
+op <- clean_operation_aspe() %>%
+  as_tibble() %>%
+  filter(
+    protocol %in% c("complete", "partial_by_point", "partial_over_bank")
+  )
+unique(op$protocol)
+
+ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
+unique(ele_sampling$prelevement_type)
+point_group <- cleaning_point_group()
+
+```
+
+```r
+#| id: point-group
+
+filter_operation_batch_measure(
+  operation = op,
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = point_group,
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = ele_sampling,
+  max_passage_number = 1,
+  fish_batch = fish_batch,
+  ind_measure = ind_measure
+)
+
+
+
+# filter batch, measurement, operation based on this
+
+# Remove NA site
+op_filtered <- op %>%
+  filter(!(is.na(site_id) | is.na(operation_id))) %>%
+  filter(date > "1995-01-01") %>%
+  arrange(desc(date))
+id <- filter_operation_id(
+  op = op_filtered,
+  objective_to_exclude = vec_op_objective_to_exclude()
+)
+op_filtered %>%
+  filter(operation_id %in% id)
+
+
+fish_batch %>%
+  filter(prelevement_id %in% ele_sampling_selection) %>%
+  filter(operation_id %in% op_filtered$operation_id)
+ind_measure %>%
+  filter(prelevement_id %in% ele_sampling_selection) %>%
+  filter(operation_id %in% op_filtered$operation_id)
+
+````
+
+
+```{r elementary-sampling}
+
+ele_sampling %>%
+  filter(is.na(passage_number))
+```
+
+## Generate fish size from batch
+
+```r
 fish_batch <- clean_fish_batch(fish_batch = raw_fish_batch)
 ind_measure <- clean_individual_measurement_aspe(
   ind_measure = raw_individual_measurement
 )
 ```
-
-
-```r
-op <- clean_operation_aspe() %>%
-  as_tibble()
-```
-
 
 ```r
 options(mc.cores = 10)
