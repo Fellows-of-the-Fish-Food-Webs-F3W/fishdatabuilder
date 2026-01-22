@@ -1,3 +1,529 @@
+#' Filter sampling operations and associated measurements for spatio-temporal analysis
+#'
+#' A comprehensive filtering function that applies multiple criteria to select
+#' operations and their associated measurements suitable for spatio-temporal
+#' analysis. This function implements a multi-step filtering process to ensure
+#' dataset consistency across protocols, objectives, dates, and sampling methods.
+#'
+#' @param operation A data frame containing cleaned operation data.
+#'   By default uses `clean_operation_aspe()`.
+#' @param op_protocol_to_keep Character vector of protocols to retain.
+#'   Default: `c("complete", "partial_by_point", "partial_over_bank")`.
+#' @param op_objective_to_exclude Character vector of objective labels to exclude.
+#'   By default uses `vec_op_objective_to_exclude()`.
+#' @param oldest_sampling_date Date threshold (character or Date object).
+#'   Operations before this date are excluded. Default: "1995-01-01".
+#' @param omit_na_site Logical indicating whether to exclude operations with
+#'   missing site IDs. Default: `TRUE`.
+#' @param point_group A data frame containing cleaned point group data.
+#'   By default uses `cleaning_point_group()`.
+#' @param min_prop_point_group_on_bank Minimum proportion of bank-based points
+#'   required to consider a "partial_by_point" protocol as "partial_over_bank".
+#'   Default: 0.999.
+#' @param ele_sampling A data frame containing cleaned elementary sampling data.
+#'   By default uses `cleaning_elementary_sampling()`.
+#' @param max_passage_number Maximum passage number to include (relevant for
+#'   multi-pass sampling protocols). Default: 1 (first passage only).
+#' @param fish_batch A data frame containing cleaned fish batch data.
+#'   By default uses `clean_fish_batch()`.
+#' @param ind_measure A data frame containing cleaned individual fish measurements.
+#'   By default uses `clean_individual_measurement_aspe()`.
+#'
+#' @return A list containing three filtered data frames:
+#' \itemize{
+#'   \item `operation`: Filtered operation data
+#'   \item `fish_batch`: Filtered fish batch data
+#'   \item `ind_measure`: Filtered individual measurement data
+#' }
+#' All returned data frames contain only operations and sampling events that
+#' pass all specified filtering criteria.
+#'
+#' @details
+#' The function implements a multi-step filtering process:
+#'
+#' **Phase A: Protocol normalization**
+#' Identifies "partial_by_point" operations where all points were sampled
+#' over the bank, reclassifying them as equivalent to "partial_over_bank"
+#' protocol for analysis purposes.
+#'
+#' **Phase B: Passage consistency**
+#' Ensures consistent passage numbers across operations, particularly for
+#' complete and partial_over_bank protocols.
+#'
+#' **Phase C: Elementary sampling selection**
+#' Combines sampling events from normalized protocols and consistent passages.
+#'
+#' **Phase D: Operation filtering**
+#' Applies date thresholds, objective exclusions, site completeness, and
+#' protocol-based filtering to operation data.
+#'
+#' **Phase E: Biological data filtering**
+#' Filters fish batch and individual measurement data based on the selected
+#' operations and sampling events.
+#'
+#' @note
+#' Additional filtering considerations mentioned in the code (TODO items):
+#' \itemize{
+#'   \item Consider station-level consistency checks (sampling scheme, month, frequency)
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Using default parameters
+#' filtered_data <- filter_operation_batch_measure()
+#'
+#' # Custom filtering for a specific analysis
+#' filtered_custom <- filter_operation_batch_measure(
+#'   op_protocol_to_keep = c("complete", "partial_over_bank"),
+#'   oldest_sampling_date = "2000-01-01",
+#'   max_passage_number = 2,
+#'   min_prop_point_group_on_bank = 0.95
+#' )
+#'
+#' # Access filtered components
+#' filtered_ops <- filtered_data$operation
+#' filtered_batches <- filtered_data$fish_batch
+#' filtered_measures <- filtered_data$ind_measure
+#' }
+#'
+#' @importFrom dplyr filter
+#' @seealso
+#' - [clean_operation_aspe()] for operation data preparation
+#' - [cleaning_point_group()] for point group data
+#' - [cleaning_elementary_sampling()] for sampling event data
+#' - [clean_fish_batch()] for fish batch data
+#' - [clean_individual_measurement_aspe()] for individual measurements
+#' - [vec_op_objective_to_exclude()] for generating objective exclusion lists
+#' @export
+filter_operation_batch_measure <- function(
+  operation = clean_operation_aspe(),
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = cleaning_point_group(),
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = cleaning_elementary_sampling(),
+  max_passage_number = 1,
+  fish_batch = clean_fish_batch(),
+  ind_measure = clean_individual_measurement_aspe()
+  ) {
+
+  # I) Function argument checking
+  ## Check data frame inputs
+  data_inputs <- list(
+    operation = operation,
+    point_group = point_group,
+    ele_sampling = ele_sampling,
+    fish_batch = fish_batch,
+    ind_measure = ind_measure
+  )
+ 
+  for (input_name in names(data_inputs)) {
+    if (!is.data.frame(data_inputs[[input_name]])) {
+      stop(paste0("`", input_name, "` must be a data frame"), call. = FALSE)
+    }
+  }
+
+  ## Check protocol vector
+  if (!is.null(op_protocol_to_keep) && (!is.character(op_protocol_to_keep) || length(op_protocol_to_keep) == 0)) {
+    stop("`op_protocol_to_keep` must be a non-empty character vector", call. = FALSE)
+  }
+
+  ## Check objective exclusion
+  if (!is.null(op_objective_to_exclude) && !is.character(op_objective_to_exclude) && !is.logical(op_objective_to_exclude)) {
+    stop("`op_objective_to_exclude` must be a character or logical vector", call. = FALSE)
+  }
+
+  ## Check date format
+  if (!is.null(oldest_sampling_date)) {
+    date_check <- try(as.Date(oldest_sampling_date), silent = TRUE)
+    if (inherits(date_check, "try-error")) {
+      stop("`oldest_sampling_date` must be a valid date in YYYY-MM-DD format", call. = FALSE)
+    }
+  }
+
+  ## Check logical parameters
+  if (!is.logical(omit_na_site) || length(omit_na_site) != 1) {
+    stop("`omit_na_site` must be a single logical value", call. = FALSE)
+  }
+
+  ## Check proportion parameter
+  if (!is.numeric(min_prop_point_group_on_bank) || 
+    min_prop_point_group_on_bank < 0 || 
+    min_prop_point_group_on_bank > 1) {
+    stop("`min_prop_point_group_on_bank` must be a numeric value between 0 and 1", call. = FALSE)
+  }
+
+  ## Check passage number
+  if (!is.numeric(max_passage_number) || max_passage_number < 1) {
+    stop("`max_passage_number` must be a positive integer", call. = FALSE)
+  }
+  max_passage_number <- as.integer(max_passage_number)
+
+  ## Check for required columns in operation data
+  required_op_cols <- c("operation_id", "protocol", "date", "site_id")
+  missing_op_cols <- setdiff(required_op_cols, names(operation))
+  if (length(missing_op_cols) > 0) {
+    stop("`operation` data missing required columns: ", 
+      paste(missing_op_cols, collapse = ", "), call. = FALSE)
+  }
+
+  ## Check for required columns in point_group
+  required_pg_cols <- c("grp_id", "point_type", "grp_nombre_points_berge", "grp_nombre")
+  missing_pg_cols <- setdiff(required_pg_cols, names(point_group))
+  if (length(missing_pg_cols) > 0) {
+    stop("`point_group` data missing required columns: ", 
+      paste(missing_pg_cols, collapse = ", "), call. = FALSE)
+  }
+
+  ## Check for required columns in ele_sampling
+  required_es_cols <- c("prelevement_id", "operation_id", "prelevement_type", "passage_number")
+  missing_es_cols <- setdiff(required_es_cols, names(ele_sampling))
+  if (length(missing_es_cols) > 0) {
+    stop("`ele_sampling` data missing required columns: ", 
+      paste(missing_es_cols, collapse = ", "), call. = FALSE)
+  }
+
+  ## Check for required columns in fish_batch
+  required_fb_cols <- c("prelevement_id", "operation_id")
+  missing_fb_cols <- setdiff(required_fb_cols, names(fish_batch))
+  if (length(missing_fb_cols) > 0) {
+    stop("`fish_batch` data missing required columns: ", 
+      paste(missing_fb_cols, collapse = ", "), call. = FALSE)
+  }
+
+  ## Check for required columns in ind_measure
+  required_im_cols <- c("prelevement_id", "operation_id")
+  missing_im_cols <- setdiff(required_im_cols, names(ind_measure))
+  if (length(missing_im_cols) > 0) {
+    stop("`ind_measure` data missing required columns: ", 
+      paste(missing_im_cols, collapse = ", "), call. = FALSE)
+  }
+
+  # A) Select prelevement of partial_by_point protocol where all points were done
+  # over the bank, those operations being equivalent to partial_over_bank
+  # protocol
+  ## 1) Get the group of sampled points
+  point_group_by_point_as_over_bank <- point_group |>
+    dplyr::filter(
+      point_type == "standard_point" & grp_nombre_points_berge >=
+        min_prop_point_group_on_bank * grp_nombre
+    )
+
+  ## 2) Get the corresponding elementary sampling
+  ele_sampling_by_point_as_over_bank <- ele_sampling |>
+    dplyr::filter(prelevement_id %in% point_group_by_point_as_over_bank$grp_id)
+  stopifnot(
+    length(unique(ele_sampling_by_point_as_over_bank$operation_id)) == nrow(ele_sampling_by_point_as_over_bank)
+  )
+  ## 3) check that the selected points only correpond to the right protocol
+  op_by_point_as_over_bank <- operation |>
+    dplyr::filter(operation_id %in% ele_sampling_by_point_as_over_bank$operation_id)
+  if (nrow(op_by_point_as_over_bank) > 0) {
+    protocols_found <- unique(op_by_point_as_over_bank$protocol)
+    if (!all(protocols_found == "partial_by_point")) {
+      warning(paste("Weird: Found protocols other than 'partial_by_point' in `point_group` selection:",
+        paste(protocols_found, collapse = ", ")), 
+        call. = FALSE)
+    }
+  }
+
+  # B) Select constant number of passage:
+  ## Passage is only defined in complete protocol and partial over bank
+  ele_sampling_passage <- ele_sampling |>
+    dplyr::filter(prelevement_type == "passage" & passage_number ==
+      max_passage_number)
+  #op_passage <- operation |>
+  #  dplyr::filter(operation_id %in% ele_sampling_passage$operation_id)
+  #op |>
+  #  filter(protocol == "partial_over_bank") |>
+  #  filter(!without_fish) |>
+  #  filter(!operation_id %in% op_1st_passage$operation_id)
+
+  # C) Gathering elementary-sampling selected 
+  ele_sampling_selection <- c(
+    ele_sampling_by_point_as_over_bank$operation_id,
+    ele_sampling_passage$operation_id
+  )
+  ## Validation: Check for duplicates
+  if (length(ele_sampling_selection) != length(unique(ele_sampling_selection))) {
+    warning("Duplicate operation IDs found in elementary sampling selection", 
+            call. = FALSE)
+  }
+
+  # D) Filter sampling operations
+  if (!is.null(oldest_sampling_date)) {
+    operation <- operation |>
+      dplyr::filter(date >= oldest_sampling_date)
+    if (nrow(operation) == 0) {
+      warning("No operations remain after date filtering.
+        Check `date` column in `operation` and `oldest_sampling_date`?", call. = FALSE)
+      return(
+        list(
+          operation = operation,
+          fish_batch = fish_batch |>
+            dplyr::filter(operation_id %in% operation$operation_id),
+          ind_measure = ind_measure |>
+            dplyr::filter(operation_id %in% operation$operation_id)
+        )
+      )
+    }
+  }
+
+  if (!is.null(op_objective_to_exclude)) {
+    ### check the provided objectives are in ASPE database to spot typo problem
+    missing_objectives <- setdiff(op_objective_to_exclude,
+      c(get_ref_objective_operation_aspe()$obj_libelle, NA_character_)
+    )
+    if (length(missing_objectives) > 0) {
+      warning(paste("These provided objectives to exclude are not found in ASPE
+        database (see `get_ref_objective_operation_aspe()`):", 
+        paste(missing_objectives, collapse = ", ")), 
+        call. = FALSE)
+    }
+    selected_operation_id <- filter_operation_id(
+      op = operation,
+      objective_to_exclude = op_objective_to_exclude
+    )
+    operation <- operation |>
+      dplyr::filter(operation_id %in% selected_operation_id)
+  }
+
+  if (omit_na_site) {
+    initial_count <- nrow(operation)
+    operation <- operation |>
+      dplyr::filter(!is.na(site_id))
+    removed_count <- initial_count - nrow(operation)
+    if (removed_count > 0) {
+      warning(paste(removed_count, "operations removed due to missing `site_id`"), 
+              call. = FALSE)
+    }
+  }
+
+  if (!is.null(op_protocol_to_keep) && length(op_protocol_to_keep) > 0) {
+    # Check if requested protocols exist in data
+    available_protocols <- unique(operation$protocol)
+    missing_protocols <- setdiff(op_protocol_to_keep, available_protocols)
+    if (length(missing_protocols) > 0) {
+      warning(paste("These requested protocols to keep are not found in data:", 
+        paste(missing_protocols, collapse = ", ")), 
+        call. = FALSE)
+    }
+    operation <- operation |>
+      dplyr::filter(protocol %in% op_protocol_to_keep)
+    if (nrow(operation) == 0) {
+      warning("No operations remain after protocol filtering", call. = FALSE)
+    }
+  }
+
+  # E) Filter Batch and measurement based on operations, and elementary-sampling
+  fish_batch <- fish_batch |>
+    dplyr::filter(prelevement_id %in% ele_sampling_selection) |>
+    dplyr::filter(operation_id %in% operation$operation_id)
+  ind_measure <- ind_measure |>
+    dplyr::filter(prelevement_id %in% ele_sampling_selection) |>
+    dplyr::filter(operation_id %in% operation$operation_id)
+
+  # F) Return the filtered dataset
+  # NOTE: You might also filtered for
+  # - consistent sampling scheme per station
+  # - consistent month of sampling per station
+  # - single sampling per year per station
+  list(
+    operation = operation,
+    fish_batch = fish_batch,
+    ind_measure = ind_measure
+  )
+
+}
+
+#' Filter operation IDs based on excluded objectives
+#'
+#' Extracts operation IDs that do not have objectives matching a specified
+#' exclusion list. Useful for filtering out operations with specific objective
+#' types (e.g., restoration or population monitoring) from analysis datasets.
+#'
+#' @param op A data frame containing cleaned operation data. By default uses 
+#'   `clean_operation_aspe()` to retrieve processed operation data. Expected to 
+#'   contain columns: `operation_id` and `objective`.
+#' @param objective_to_exclude A character vector of objective labels to exclude.
+#'   By default uses `vec_op_objective_to_exclude()` which provides sensible
+#'   defaults for excluding restoration and population monitoring objectives.
+#'
+#' @return A vector of operation IDs (type depends on the input `operation_id`
+#'   column) containing only operations whose objectives are not in the
+#'   exclusion list.
+#'
+#' @details
+#' The function performs the following steps:
+#' \itemize{
+#'   \item Selects only the `operation_id` and `objective` columns from the
+#'         input operation data
+#'   \item Unnests the `objective` column (if it contains list-columns or
+#'         multiple values per operation)
+#'   \item Filters out operations where any objective matches the exclusion list
+#'   \item Returns a vector of unique operation IDs that pass the filter
+#' }
+#'
+#' Note: Operations are excluded if *any* of their objectives match the
+#' exclusion list. Operations can have multiple objectives, and the function
+#' uses `tidyr::unnest()` to handle this appropriately.
+#'
+#' @examples
+#' \dontrun{
+#' # Using default exclusions (restoration and population monitoring objectives)
+#' valid_op_ids <- filter_operation_id()
+#' 
+#' # With custom operation data
+#' clean_ops <- clean_operation_aspe()
+#' valid_ids <- filter_operation_id(op = clean_ops)
+#' 
+#' # With custom exclusion list
+#' custom_exclusions <- c("Suivi de restauration", "Suivi des populations")
+#' custom_ids <- filter_operation_id(objective_to_exclude = custom_exclusions)
+#' 
+#' # Use in filtering other datasets
+#' filtered_sampling <- sampling_data %>%
+#'   filter(operation_id %in% filter_operation_id())
+#' }
+#'
+#' @importFrom dplyr select filter
+#' @importFrom tidyr unnest
+#' @seealso
+#' - [clean_operation_aspe()] for cleaned operation data
+#' - [vec_op_objective_to_exclude()] for generating exclusion lists
+#' - [dplyr::filter()] for general data filtering
+#' - [tidyr::unnest()] for handling nested data structures
+#' @export
+filter_operation_id <- function(
+  op = clean_operation_aspe(),
+  objective_to_exclude = vec_op_objective_to_exclude()
+) {
+
+  # Get initial count
+  initial_count <- length(unique(op$operation_id))
+
+  op <- op %>%
+    dplyr::select(operation_id, objective) %>%
+    tidyr::unnest(cols = c(objective)) %>%
+    dplyr::filter(!objective %in% objective_to_exclude)
+
+  op_id <- unique(op$operation_id)
+  final_count <- length(op_id)
+
+  if (final_count == 0) {
+    warning("No operations remain after filtering", call. = FALSE)
+  } else if (final_count < initial_count / 2) {
+    warning("More than 50% of operations filtered out", call. = FALSE)
+  }
+
+  # Ensure unique operation IDs
+  op_id
+}
+
+#' Generate vector of operation objectives to exclude
+#'
+#' Creates a vector of operation objective labels to exclude from analysis based
+#' on specified criteria. Useful for filtering operations in data processing pipelines.
+#'
+#' @param ref_protocol A data frame containing protocol reference data. 
+#'   By default uses `get_ref_objective_operation_aspe()`. This parameter is 
+#'   included for API consistency but not used in the current implementation.
+#' @param restoration Logical. If `FALSE` (default), restoration-related objectives
+#'   will be included in the exclusion list. If `TRUE`, restoration objectives
+#'   will not be excluded.
+#' @param population_monitoring Logical. If `FALSE` (default), population monitoring
+#'   objectives will be included in the exclusion list. If `TRUE`, population
+#'   monitoring objectives will not be excluded.
+#' @param keep_NA Logical. If `FALSE` (default), `NA` values will be included in
+#'   the exclusion list. If `TRUE`, `NA` values will not be excluded.
+#'
+#' @return A character vector containing objective labels to exclude. The vector
+#'   may contain:
+#'   \itemize{
+#'     \item Restoration-related objective labels (if `restoration = FALSE`)
+#'     \item Population monitoring objective labels (if `population_monitoring = FALSE`)
+#'     \item `NA` (if `keep_NA = FALSE`)
+#'   }
+#'
+#' @details
+#' The function categorizes objectives into two groups for optional exclusion:
+#' 
+#' **Restoration objectives** (excluded when `restoration = FALSE`):
+#' \itemize{
+#'   \item "RNSORMCE – Réseau National de Suivi des Opérations de Restauration hydroMorphologiques des Cours d'Eau"
+#'   \item "Sauvetage - Transfert"
+#'   \item "Suivi de restauration"
+#' }
+#' 
+#' **Population monitoring objectives** (excluded when `population_monitoring = FALSE`):
+#' \itemize{
+#'   \item "Suivi des populations de saumons"
+#'   \item "Suivi des populations d'anguilles"
+#'   \item "Suivi des populations de truites"
+#' }
+#' 
+#' Note: The `ref_protocol` parameter is currently not used in the function but
+#' is maintained for potential future enhancements and API consistency with
+#' similar functions in the package.
+#'
+#' @examples
+#' \dontrun{
+#' # Exclude all non-standard objectives (default behavior)
+#' exclude_all <- vec_op_objective_to_exclude()
+#' 
+#' # Keep restoration objectives but exclude population monitoring
+#' exclude_pop_only <- vec_op_objective_to_exclude(restoration = TRUE)
+#' 
+#' # Keep everything (empty exclusion list)
+#' exclude_none <- vec_op_objective_to_exclude(
+#'   restoration = TRUE,
+#'   population_monitoring = TRUE,
+#'   keep_NA = TRUE
+#' )
+#' 
+#' # Use in filtering operations
+#' clean_ops <- operations %>%
+#'   filter(!objective %in% vec_op_objective_to_exclude())
+#' }
+#'
+#' @seealso
+#' - [clean_operation_aspe()] which might use this exclusion list
+#' - [get_ref_objective_operation_aspe()] for accessing objective reference data
+#' @export
+vec_op_objective_to_exclude <- function(
+  ref_protocol = get_ref_objective_operation_aspe(),
+  restoration = FALSE,
+  restoration_objective = c(
+    "RNSORMCE – Réseau National de Suivi des Opérations de Restauration hydroMorphologiques des Cours d'Eau",
+    "Sauvetage - Transfert",
+    "Suivi de restauration"
+  ),
+  population_monitoring = FALSE,
+  population_objective = c(
+    "Suivi des populations de saumons",
+    "Suivi des populations d'anguilles",
+    "Suivi des populations de truites"
+  ),
+  keep_NA = FALSE
+) {
+
+
+  to_exclude <- c()
+
+  if (restoration == FALSE) {
+    to_exclude <- append(to_exclude, restoration_objective)
+  }
+  if (population_monitoring == FALSE) {
+    to_exclude <- append(to_exclude, population_objective)
+  }
+  if (keep_NA == FALSE) {
+    to_exclude <- append(to_exclude, NA_character_)
+  }
+  to_exclude
+}
+
 #' Clean and standardize operation data from ASPE database
 #'
 #' Processes fishing operation data by joining objective and protocol information,
@@ -155,7 +681,10 @@ clean_operation_aspe <- function(
   op_objective <- op_objective %>%
     dplyr::rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
     dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) %>%
-    dplyr::select(ope_id, obj_libelle)
+    dplyr::select(ope_id, objective = obj_libelle) %>%
+    # Nest objectives because operations can have several objectives
+    group_by(ope_id) %>%
+    nest(obj_libelle = c(objective))
 
   sampling_point <- sampling_point %>%
     dplyr::select(pop_id, pop_sta_id)
@@ -190,6 +719,8 @@ clean_operation_aspe <- function(
       date = lubridate::date(date_time)
     )
   # Add some info from desc table?
+  # Test that we have unique operation_id (i.e. no duplicates):
+  stopifnot(length(unique(op$operation_id)) == nrow(op))
   op
 }
 

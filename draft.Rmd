@@ -55,6 +55,20 @@ raw_fish_batch <- get_fish_batch_aspe() |> as_tibble()
 raw_individual_measurement <- get_individual_measurement_aspe() |> as_tibble()
 ```
 
+
+```r
+op <- clean_operation_aspe() %>%
+  as_tibble() %>%
+  filter(
+    protocol %in% c("complete", "partial_by_point", "partial_over_bank")
+  )
+unique(op$protocol)
+
+ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
+unique(ele_sampling$prelevement_type)
+point_group <- cleaning_point_group()
+```
+
 ```r
 fish_batch <- clean_fish_batch(fish_batch = raw_fish_batch)
 ind_measure <- clean_individual_measurement_aspe(
@@ -62,20 +76,41 @@ ind_measure <- clean_individual_measurement_aspe(
 )
 ```
 
+## Filter samplings based on sensible default
 
 ```r
-op <- clean_operation_aspe() %>%
-  as_tibble()
-```
+#| id: point-group
+filtered_sampling <- filter_operation_batch_measure(
+  operation = op,
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = point_group,
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = ele_sampling,
+  max_passage_number = 1,
+  fish_batch = fish_batch,
+  ind_measure = ind_measure
+)
+````
+
+## Generate fish size from batch
 
 
 ```r
 options(mc.cores = 10)
 operation_id_sample <- sample(op$operation_id, 1000)
 batch_test <- fish_batch %>%
-  filter(operation_id %in% operation_id_sample)
+  filter(operation_id %in% operation_id_sample) %>%
+  select(-c(
+    weight, estimated_weight, mep_id, tlo_id,
+    prelevement_id, operation_id
+  ))
 measure_test <- ind_measure %>%
-  filter(operation_id %in% operation_id_sample)
+  filter(operation_id %in% operation_id_sample) %>%
+  select(-c(site_id:prelevement_id, measure_id))
+system.time({
 test <- get_size_from_batch(
       batch = batch_test,
       id_var = batch_id,
@@ -87,53 +122,43 @@ test <- get_size_from_batch(
       measure = measure_test,
       measure_id_var = batch_id,
       size_var = size)
+})
 ```
 
 ```r
-to <- test %>%
-  unnest(cols = size_mm)
-max(to$size_mm, na.rm = TRUE)
-to %>%
-  filter(size_mm > 1000)
+#| eval: FALSE
+# 50min to run
+options(mc.cores = 10)
+fish_ind_size <- get_size_from_batch(
+  batch = filtered_sampling$fish_batch |>
+    select(-c(weight, estimated_weight, mep_id, tlo_id,
+      prelevement_id, operation_id
+    )),
+  id_var = batch_id,
+  batch_type_var = batch_type,
+  nb_var = number,
+  min_var = min_length,
+  max_var = max_length,
+  species = species_code,
+  measure = filtered_sampling$ind_measure %>%
+    select(-c(site_id:prelevement_id, measure_id)),
+  measure_id_var = batch_id,
+  size_var = size)
+save(fish_ind_size, file = "~/Téléchargements/fish_ind_size.rda")
+````
 
-batch_test_one <- batch_test[5, ]
-measure_test_one <- ind_measure %>%
-  filter(operation_id %in% batch_test_one$operation_id)
-gen_fish_from_batch(
-      id = batch_test_one[["batch_id"]],
-      type = batch_test_one[["batch_type"]],
-      min_size = batch_test_one[["min_length"]],
-      max_size = batch_test_one[["max_length"]],
-      nb = batch_test_one[["number"]],
-      ind_measure = measure_test_one,
-      ind_id = "batch_id",
-      ind_size = "size")
+```r
+load("~/Téléchargements/fish_ind_size.rda")
+fish_ind_size %>%
+  unnest(size_mm)
 ```
 
-
-
+## Other things
 
 ```r
 #| id: species
 sp <- cleaning_species_ref_aspe() |> as_tibble()
 ```
-
-```r
-#| id: point-group
-pt <- point_group %>%
-  dplyr::left_join(ref_point_group) %>%
-  dplyr::select(-grp_tgp_id) %>%
-  dplyr::select(grp_id, point_type, everything())
-
-cleaning_point_group() |> as_tibble()
-cleaning_point_group() %>%
-  filter(
-    point_type == "standard_point" & grp_nombre_points_berge >= 0.90*(grp_nombre)
-  )
-
-
-````
-
 
 ```{r elementary-sampling}
 
@@ -144,56 +169,6 @@ ele_sampling %>%
 
 
 ```r
-op_description <- clean_description_operation_aspe()  |> as_tibble()
-# TODO:
-# - Move and Document functions
-# - Write some tests
-# - Do we put it merge it with fish operation data? I think not for now
+op_description <- clean_description_operation_aspe() |> as_tibble()
 ```
-
-
-```r
-sampling_point |>
-  dplyr::filter(is.na(pop_sta_id))
-op %>%
-  dplyr::filter(is.na(pop_sta_id)) %>%
-  select(date, obj_libelle, pro_libelle)
-
-op_objective %<>%
-  rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
-  left_join(ref_objective) %>%
-  select(ope_id, obj_libelle)
-
-#We might want to check this more close when we have filtered the sites and
-#the operations
-op_objective %>%
-  group_by(obj_libelle) %>%
-  summarise(n = n()) %>%
-  arrange(desc(n))
-  
-```
-
-```r
-|# ref-protocol
-ti <- op %>%
-  left_join(ref_protocol, join_by(ope_pro_id == pro_id))
-ti %>%
-  group_by(pro_libelle) %>%
-  summarise(n = n()) %>%
-  arrange(desc(n))
-```
-
-
-
-
-
-```r
-#TODO:
-#- get the variables right: date, objective, protocols, etc...
-#- Change/Translate the variable names
-# We might want to remove operation with no objective?
-  filter(is.na(obj_libelle))
-#- Filter operation data so that they have only one objective
-```
-
 

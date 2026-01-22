@@ -60,7 +60,6 @@ In development mode:
 
 ``` r
 library(devtools)
-#> Le chargement a nécessité le package : usethis
 library(pkgfilecache)
 load_all()
 #> ℹ Loading fishdatabuilder
@@ -84,12 +83,6 @@ station <- clean_station_aspe(
   ref_coordinates = get_raw_ref_coordinates_station_aspe(),
   crs_to = 4326
   )
-#> Warning: There was 1 warning in `dplyr::mutate()`.
-#> ℹ In argument: `data = purrr::map2(data, typ_code_epsg, convert_crs, crs_to =
-#>   crs_to)`.
-#> ℹ In group 4: `typ_code_epsg = 2989`.
-#> Caused by warning in `CPL_crs_from_input()`:
-#> ! GDAL Message 1: CRS EPSG:2989 is deprecated. Its non-deprecated replacement EPSG:4559 will be used instead. To use the original CRS, set the OSR_USE_NON_DEPRECATED configuration option to NO.
 head(station)
 #>   site_id          x        y
 #> 1    1216  6.1403141 48.60643
@@ -100,24 +93,33 @@ head(station)
 #> 6   12987 -3.9799718 48.48472
 ```
 
+## Access cleaned sampling objects
+
 ``` r
 # Cleaned operation files:
 op <- clean_operation_aspe()
 head(op)
-#>   operation_id site_id       date                                objective
-#> 1        87711   21356 2022-06-21 RCS – Réseau de Contrôle de Surveillance
-#> 2        87711   21356 2022-06-21        RRP – Réseau de Référence Pérenne
-#> 3        86077    7003 2021-08-31 RCS – Réseau de Contrôle de Surveillance
-#> 4        86230    5443 2021-09-22 RCS – Réseau de Contrôle de Surveillance
-#> 5        87257    5690 2021-08-06 RCS – Réseau de Contrôle de Surveillance
-#> 6        87255    5953 2021-09-30 RCS – Réseau de Contrôle de Surveillance
+#>   operation_id site_id       date
+#> 1        87711   21356 2022-06-21
+#> 2        86077    7003 2021-08-31
+#> 3        86230    5443 2021-09-22
+#> 4        87257    5690 2021-08-06
+#> 5        87255    5953 2021-09-30
+#> 6        87253    5307 2021-08-05
+#>                                                                     objective
+#> 1 RCS – Réseau de Contrôle de Surveillance, RRP – Réseau de Référence Pérenne
+#> 2                                    RCS – Réseau de Contrôle de Surveillance
+#> 3                                    RCS – Réseau de Contrôle de Surveillance
+#> 4                                    RCS – Réseau de Contrôle de Surveillance
+#> 5                                    RCS – Réseau de Contrôle de Surveillance
+#> 6 RCS – Réseau de Contrôle de Surveillance, RRP – Réseau de Référence Pérenne
 #>           protocol without_fish computed_surface           date_time
 #> 1         complete        FALSE            897.0 2022-06-21 09:30:00
-#> 2         complete        FALSE            897.0 2022-06-21 09:30:00
-#> 3 partial_by_point        FALSE            937.5 2021-08-31 09:30:00
-#> 4 partial_by_point        FALSE           1250.0 2021-09-22 10:00:00
-#> 5         complete        FALSE            823.2 2021-08-06 08:15:00
-#> 6         complete        FALSE            319.2 2021-09-30 13:00:00
+#> 2 partial_by_point        FALSE            937.5 2021-08-31 09:30:00
+#> 3 partial_by_point        FALSE           1250.0 2021-09-22 10:00:00
+#> 4         complete        FALSE            823.2 2021-08-06 08:15:00
+#> 5         complete        FALSE            319.2 2021-09-30 13:00:00
+#> 6         complete        FALSE           2217.2 2021-08-05 14:10:00
 
 # Cleaned description of operation files:
 op_description <- clean_description_operation_aspe()
@@ -195,7 +197,7 @@ head(point_group)
 #> 5                       26                        0
 #> 6                        2                        0
 
-# Cleaned fish batches (lot_poisson in frence)
+# Cleaned fish batches (lot_poisson in french)
 fish_batch <- clean_fish_batch()
 head(fish_batch)
 #>   batch_id prelevement_id operation_id species_code batch_type min_length
@@ -216,11 +218,80 @@ head(fish_batch)
 # Cleaned individual measurement of fish from the batches
 ind_measure <- clean_individual_measurement_aspe()
 head(ind_measure)
-#>   measure_id batch_id size
-#> 1   18984995  5375242   68
-#> 2   18984996  5375233  159
-#> 3   18984997  5375233  153
-#> 4   18984998  5375233  154
-#> 5   18984999  5375233  152
-#> 6   18985000  5375243   50
+#>   site_id operation_id prelevement_id batch_id measure_id species_code size
+#> 1    8646        86765          93807  5375242   18984995          LOF   68
+#> 2   17453        86764          93805  5375233   18984996          CHE  159
+#> 3   17453        86764          93805  5375233   18984997          CHE  153
+#> 4   17453        86764          93805  5375233   18984998          CHE  154
+#> 5   17453        86764          93805  5375233   18984999          CHE  152
+#> 6    8646        86765          93807  5375243   18985000          LOF   50
+```
+
+\## Filter sampling events and subsampling
+
+You can filtered the dataset according to some criteria, by default that
+we believe relevant for spatio-temporal analysis.
+
+``` r
+filtered_sampling <- filter_operation_batch_measure(
+  operation = op,
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = point_group,
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = elementary_sampling,
+  max_passage_number = 1,
+  fish_batch = fish_batch,
+  ind_measure = ind_measure
+)
+names(filtered_sampling)
+head(filtered_sampling$operation)
+head(filtered_sampling$fish_batch)
+head(filtered_sampling$ind_measure)
+```
+
+\## Generate fish individual size
+
+We sample sampling operations because it takes almost 50 minutes using
+parallelisation.
+
+``` r
+operation_id_sample <- sample(op$operation_id, 100)
+batch_test <- fish_batch %>%
+  filter(operation_id %in% operation_id_sample) %>%
+  select(-c(
+    weight, estimated_weight, mep_id, tlo_id,
+    prelevement_id, operation_id
+  ))
+measure_test <- ind_measure %>%
+  filter(operation_id %in% operation_id_sample) %>%
+  select(-c(site_id:prelevement_id, measure_id))
+```
+
+Generate the individual body size from batches and individual
+measurements.
+
+``` r
+options(mc.cores = 1)
+system.time({
+test <- get_size_from_batch(
+      batch = batch_test,
+      id_var = batch_id,
+      batch_type_var = batch_type,
+      nb_var = number,
+      min_var = min_length,
+      max_var = max_length,
+      species = species_code,
+      measure = measure_test,
+      measure_id_var = batch_id,
+      size_var = size)
+})
+
+test <- test %>%
+  unnest(cols = size_mm)
+nrow(test)
+test %>%
+  head
 ```
