@@ -39,6 +39,7 @@ op_objective <- get_objective_operation_aspe() |> as_tibble()
 sampling_point <- get_sampling_point_aspe() |> as_tibble()
 op_description <- get_description_operation_aspe() |> as_tibble()
 ref_isolation <- get_ref_isolation_operation_aspe() |> as_tibble()
+raw_ref_species <- get_species_aspe() |> as_tibble()
 
 detail_sampling <- get_elementary_sampling_aspe() |> as_tibble()
 ref_detail_sampling <- get_ref_elementary_sampling_aspe() |> as_tibble()
@@ -74,6 +75,103 @@ fish_batch <- clean_fish_batch(fish_batch = raw_fish_batch)
 ind_measure <- clean_individual_measurement_aspe(
   ind_measure = raw_individual_measurement
 )
+```
+
+```r
+species_occurence <- fish_batch %>%
+  distinct(operation_id, species_code) |>
+  group_by(species_code) |>
+  summarise(occurence = n())
+
+```
+
+
+## Get species name synonym
+
+```r
+species |>
+  filter(species_code == "ATH")
+
+species %>% filter(str_detect(latin_name, "Mugilidae"))
+species[species$species_code == "MUC", ]$common_name_fr
+species[species$species_code == "MUP", ]$latin_name
+species_occurence |> filter(species_code %in% c("LOF", "LOL", "LOQ"))
+species_occurence |> filter(str_detect(species_code, "MU[A-Z]"))
+
+```
+
+```r
+# TODO:
+# - clean only fish species, remove genra solved species, look at how much it removed? I.e.the ones who do not have an accepted name but that have one word name, finish by spp. or sp. or non latin name ("Hybride brème-gardon")
+# - get maximum length for missing species?
+fish_batch_ok <- fish_batch |>
+  filter(!species_code %in% species_to_remove()) |>
+  mutate(species_code = str_replace_all(
+    species_code,
+    species_replacement_list()
+  )
+  )
+
+species_code_present <- unique(
+  c(fish_batch_ok$species_code)
+)
+species_present <- species |>
+  filter(species_code %in% species_code_present)
+species_syn_aspe <- unique(species_present$latin_name) |>
+    rfishbase::synonyms() %>%
+    select(
+    provided_name = synonym,
+    valid_name = Species,
+    Comment = Status
+  ) %>%
+  as_tibble() %>%
+  left_join(
+    select(species, species_code, latin_name),
+    by = join_by(provided_name == latin_name)
+  )
+species_syn_aspe %>%
+  print(n = Inf)
+
+```
+
+```r
+species |>
+  filter(
+    latin_name %in%
+      species_syn_aspe[is.na(species_syn_aspe$valid_name), ]$provided_name
+  )
+species_syn_aspe |>
+  filter(is.na(valid_name)) |>
+  print(n = Inf)
+```
+
+## Check maximum length
+
+```r
+check_size_ind_measure <- ind_measure %>%
+  select(measure_id, species_code, size) %>%
+  left_join(
+    select(species, species_code, latin_name, maximal_length_mm),
+    by = join_by(species_code)
+  )
+```
+
+```r
+#| id: sp-na-max-size
+check_size_ind_measure |>
+  filter(size > maximal_length_mm) 
+```
+
+```r
+#| id: sp-na-max-size
+check_size_ind_measure |>
+  filter(is.na(maximal_length_mm)) |>
+  distinct(species_code, latin_name)
+n_na_max_length <- check_size_ind_measure |>
+  filter(is.na(maximal_length_mm)) |>
+  nrow()
+n_na_max_length / nrow(check_size_ind_measure)
+
 ```
 
 ## Filter samplings based on sensible default
