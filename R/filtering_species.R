@@ -124,7 +124,157 @@ species_to_remove <- function(
   output
 }
 
-species_replacement_list <- function() {
+#' Get mapping of undetermined species codes to valid species codes
+#'
+#' Provides a named vector mapping undetermined, hybrid, or misclassified species codes
+#' to their most likely valid species codes based on occurrence frequency, biological
+#' plausibility, and expert knowledge. This mapping is designed to standardize species
+#' identification in ASPE database records.
+#'
+#' @details
+#' The function returns a named character vector where:
+#' * **Names** are the original codes found in the database (undetermined, hybrid, 
+#'   or alternative classifications)
+#' * **Values** are the standardized species codes to replace them with
+#'
+#' The mapping decisions are based on several criteria:
+#' \itemize{
+#'   \item **Occurrence frequency**: When multiple species are possible, the most
+#'         frequently occurring species in the dataset is selected
+#'   \item **Biological plausibility**: Closest related species based on morphology
+#'         or ecology
+#'   \item **Expert knowledge**: Species-specific decisions informed by fisheries
+#'         biologists
+#'   \item **Monotypic genera**: When only one species exists in the genus for the
+#'         study area
+#' }
+#'
+#' @section Mapping Categories:
+#' 
+#' **Undetermined genus/species** (codes ending with X):
+#' \describe{
+#'   \item{BBX → BBG}{Undetermined black bass to *Micropterus salmoides* (closest in maximum length)}
+#'   \item{BLX → BRB}{Undetermined *Blicca* to *Blicca bjoerkna* (only species in genus)}
+#'   \item{BRX → BRE}{Undetermined *Abramis* to *Abramis brama* (only species in genus)}
+#'   \item{ALX → ALA}{Undetermined *Alosa* to *Alosa alosa* (higher occurrence)}
+#'   \item{BAX → BAF}{Undetermined *Barbus* to *Barbus barbus* (10× higher occurrence)}
+#'   \item{CAX → CAS}{Undetermined *Carassius* to *Carassius carassius* (highest occurrence)}
+#'   \item{GOX → GOU}{Undetermined *Gobio* to *Gobio gobio* (100× higher occurrence)}
+#'   \item{PHX → VAI}{Undetermined *Phoxinus* to *Phoxinus phoxinus* (5000× higher occurrence)}
+#'   \item{LOX → LOF}{Undetermined *Barbatula* to *Barbatula barbatula* (only species in genus)}
+#' }
+#'
+#' **Undetermined species with question marks** (uncertain identification):
+#' \describe{
+#'   \item{LP? → LPP}{Undetermined lamprey to *Lampetra planeri* (100× higher occurrence)}
+#'   \item{MU? → MUP}{Undetermined mullet to *Liza ramada* (10× higher occurrence)}
+#' }
+#'
+#' **Petromyzontidae (lamprey) variants:**
+#' \describe{
+#'   \item{LPX → LPP}{Undetermined lamprey to *Lampetra planeri* (100× higher occurrence)}
+#' }
+#'
+#' **Cyprinid hybrids and variants:**
+#' \describe{
+#'   \item{HBG → GAR}{Hybrid bream/roach to roach (*Rutilus rutilus*)}
+#'   \item{BRG → BRE}{Hybrid bream-roach to bream (*Abramis brama*) (n=4)}
+#'   \item{HYC → GAR}{Undetermined cyprinid hybrid to roach (n=20)}
+#'   \item{CYP → GAR}{Juvenile cyprinid to roach}
+#' }
+#'
+#' **Carassius (crucian carp) variants:**
+#' \describe{
+#'   \item{CAG → CAS}{Silver crucian carp to crucian carp (*Carassius carassius*)}
+#'   \item{CAA → CAS}{Golden or silver crucian carp to crucian carp}
+#'   \item{CAR → CAS}{Silver carp to crucian carp}
+#'   \item{CAD → CAS}{Golden crucian carp to crucian carp}
+#' }
+#'
+#' **Carp (Cyprinus) variants:**
+#' \describe{
+#'   \item{CMI → CCO}{Mirror carp to common carp (*Cyprinus carpio*)}
+#'   \item{CCU → CCO}{Leather carp to common carp}
+#' }
+#'
+#' **Trout (Salmo) variants:**
+#' \describe{
+#'   \item{TRL → TRF}{Lake trout to river trout (*Salmo trutta fario*)}
+#'   \item{TRM → TRF}{Sea trout to river trout}
+#' }
+#'
+#' **Other corrections:**
+#' \describe{
+#'   \item{RUB → GAR}{Italian roach to roach (n=1)}
+#' }
+#'
+#' @return A named character vector where:
+#' \itemize{
+#'   \item Names are the original species codes to be replaced
+#'   \item Values are the standardized species codes to use instead
+#' }
+#'
+#' @note
+#' - The function is designed to be used with [dplyr::recode()] or similar
+#'   recoding functions
+#' - Mapping decisions are based on ASPE database occurrences and expert knowledge
+#' - These replacements help standardize datasets for analysis while maintaining
+#'   biological meaningfulness
+#' - Some codes (e.g., BBX, BLX) represent undetermined individuals at genus level
+#'
+#' @examples
+#' \dontrun{
+#' # Get the replacement mapping
+#' replacement_map <- species_code_to_replace()
+#' 
+#' # Use in data cleaning
+#' clean_species_data <- fish_data %>%
+#'   dplyr::mutate(
+#'     species_code = dplyr::recode(species_code, !!!species_code_to_replace())
+#'   )
+#' 
+#' # Check which codes will be replaced
+#' original_codes <- names(species_code_to_replace())
+#' replacement_codes <- species_code_to_replace()
+#' }
+#'
+#' @seealso
+#' - [species_to_remove()] for codes to exclude entirely
+#' - [clean_fish_batch()] for fish batch data cleaning
+#' - [clean_individual_measurement_aspe()] for individual fish measurements
+#'
+#' @return A named character vector mapping original codes to replacement codes
+#' @export
+species_code_to_replace <- function() {
+  c(
+    "BBX" = "BBG", # Undetermined black bass to B. salmonides (closest in maximum length in ASPE species table)
+    "BLX" = "BRB", # The only Blicca species in the ASPE species table
+    "BRX" = "BRE", # The only Abramis in the ASPE species table
+    "ALX" = "ALA", # Undetermined Alosa to A. alosa, slightly highest occurrence Alosa
+    "BAX" = "BAF", # Undetermined Barbus sp. to B. barbus, occurrence 10 times higher than BAM
+    "CAX" = "CAS", # Undetermined Carassius sp. to C. carassius, highest occurrence
+    "GOX" = "GOU", # Undetermined  Gobio sp. to G. gobio, 100 times higher occurrence than the other
+    "HBG" = "GAR", # Hybrid bream / roach
+    "PHX" = "VAI", # Undetermined Phoxinus sp. to common Phoxinus, occurrence 5000 times higher than the other
+    "LOX" = "LOF", # Undetermined Barbatula sp. to B. barbatula, the only species of the Barbatula genus in the dataset
+    "LP?" = "LPP", # Undetermined Petromyzontidae to Lampetra planeri, occurrence 100 times higher than the other lamprey species in the dataset
+    "LPX" = "LPP", # Undetermined Petromyzontidae to Lampetra planeri, occurrence 100 times higher than the other lamprey species in the dataset
+    "MU?" = "MUP", # Undetermined Mugilidae to Liza ramada, occurrence 10 times higher than the other mullet in the dataset
+    "CMI" = "CCO", # Mirror carp to common carp
+    "CCU" = "CCO", # Leather carp to common carp
+    "RUB" = "GAR", # Italian roach to roach (n=1)
+    "CYP" = "GAR", # Juvenile cyprinid to roach
+    "CAG" = "CAS", # Silver crucian carp to crucian carp
+    "CAA" = "CAS", # Golden or silver crucian carp to crucian carp
+    "CAR" = "CAS", # Silver carp to crucian carp
+    "CAD" = "CAS", # Golden crucian carp to crucian carp
+    "BRG" = "BRE", # Hybrid bream-roach to bream (n=4)
+    "HYC" = "GAR", # Undetermined cyprinid hybrid to roach (n=20)
+    "TRL" = "TRF", # Lake trout to river trout
+    "TRM" = "TRF"  # Sea trout to river trout
+  )
+}
+species_code_to_replace <- function() {
   c(
     "BBX" = "BBG", #Indetermined black bass to B. salmonides (closest in maximum length in ASPE species table)
     "BLX" = "BRB", # The only Blicca species in the ASPE species table
@@ -137,6 +287,7 @@ species_replacement_list <- function() {
     "PHX" = "VAI", # Undetermined Phoxinus sp. to common Phoxinus, occurence 5000 times higher than the other
     "LOX" = "LOF", # Undetermined Barbatula sp. to B. barbatula, the only species of the Barbatula genra in the dataset
     "LP?" = "LPP", # Undetermined Petromyzontidae to Lampetra planeri, occurence 100 times higher than the other Lemprey species in the dataset
+    "LPX" = "LPP", # Undetermined Petromyzontidae to Lampetra planeri, occurence 100 times higher than the other Lemprey species in the dataset
     "MU?" = "MUP", # Undetermined Mugilidae to Liza ramada, occurence 10 times higher than the other Mullet in the dataset
     "CMI" = "CCO", #"Carpe_miroir"<-"Carpe_commune"
     "CCU" = "CCO", #"Carpe_cuir"<-"Carpe_commune"
@@ -148,7 +299,6 @@ species_replacement_list <- function() {
     "CAD" = "CAS", #"Carassin_dore"<-"Carassin"
     "BRG" = "BRE", #"Hybride_breme-gardon"<-"Breme" n=4
     "HYC" = "GAR", #"Hybrides_de_cyprinides"<-"Gardon"n=20
-    "LPX" = "LPP", #"Lamproie"<-"Lamproie_de_planer" n=1047
     "TRL" = "TRF", #"Truite_de_lac"<-"Truite_de_riviere"
     "TRM" = "TRF"  #"Truite_de_mer"<-"Truite_de_riviere"
   )
