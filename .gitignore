@@ -1,2 +1,4 @@
 .Rproj.user
 README.html
+inst/doc
+**/.quarto/

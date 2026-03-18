@@ -42,5 +42,5 @@ usethis::use_package("mockery", "Suggests")
 usethis::use_package("covr", "Suggests")
 usethis::use_package("truncdist", "Suggests")
 
-
+usethis::use_vignette("getting_started.qmd", "Getting started")
 

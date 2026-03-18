@@ -119,7 +119,7 @@ clean_station_aspe <- function(
   }
 
   # Get reference of the coordinate systems (epsg)
-  station <- station %>%
+  station <- station |>
     dplyr::left_join(ref_coordinates, by = "typ_id")
 
   ## Check for coordinates
@@ -150,21 +150,20 @@ clean_station_aspe <- function(
     temp <- sf::st_as_sf(df, crs = epsg, coords = c("x", "y"))
     sf::st_transform(temp, crs = crs_to)
   }
-  station <- station %>%
-    dplyr::group_by(typ_code_epsg) %>%
-    tidyr::nest() %>%
+  station <- station |>
+    dplyr::group_by(typ_code_epsg) |>
+    tidyr::nest() |>
     dplyr::mutate(
       data = purrr::map2(data, typ_code_epsg, convert_crs, crs_to = crs_to)
-    ) %>%
-    dplyr::ungroup() %>%
-    tidyr::unnest(cols = data) %>%
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::unnest(cols = data) |>
     dplyr::select(site_id, geometry)
 
   # Convert sf geometry column in X,Y column
-  station <- station %>%
-    cbind(., sf::st_coordinates(st_as_sf(.))) %>%
-    dplyr::select(-geometry) %>%
-    rename_with(., tolower)
+  station <- cbind(station, sf::st_coordinates(st_as_sf(station))) |>
+    dplyr::select(-geometry) |>
+    rename_with(.data = _, tolower)
 
   return(station)
 }
@@ -302,7 +301,7 @@ get_description_operation_aspe <- function(file = "operation_description_peche.c
 #' @rdname raw_data_accessors
 #' @details For `get_elementary_sampling_aspe()`: Retrieves detailed fishing sampling protocol.
 #' Default file: `"prelevement_elementaire.csv"`
-#' @export get_description_operation_aspe
+#' @export get_elementary_sampling_aspe
 get_elementary_sampling_aspe <- function(file = "prelevement_elementaire.csv") {
   read_raw_data(file_name = file)
 }

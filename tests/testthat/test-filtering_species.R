@@ -40,6 +40,6 @@ test_that("species_code_to_replace returns correct mapping", {
   expect_equal(unname(mapping["CMI"]), "CCO")
   
   # Check that all replacement codes exist (if you have a valid species list)
-  valid_codes <- cleaning_species_ref_aspe() |> pull(species_code)
+  valid_codes <- cleaning_species_ref_aspe() |> dplyr::pull(species_code)
   expect_true(all(mapping %in% valid_codes))
 })
