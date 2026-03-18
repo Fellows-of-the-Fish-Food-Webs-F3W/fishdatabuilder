@@ -131,7 +131,7 @@ replacement_codes <- species_code_to_replace()
 }
 \seealso{
 \itemize{
-\item \code{\link[=species_to_remove]{species_to_remove()}} for codes to exclude entirely
+\item \code{\link[=species_code_to_remove]{species_code_to_remove()}} for codes to exclude entirely
 \item \code{\link[=clean_fish_batch]{clean_fish_batch()}} for fish batch data cleaning
 \item \code{\link[=clean_individual_measurement_aspe]{clean_individual_measurement_aspe()}} for individual fish measurements
 }

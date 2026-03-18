@@ -13,8 +13,6 @@ library(tidyr)
 library(purrr)
 library(devtools)
 devtools::load_all()
-document()
-test()
 
 # optional
 library(tibble)
@@ -25,6 +23,7 @@ library(tibble)
 devtools::load_all()
 document()
 test()
+build_vignettes()
 ```
 
 
@@ -63,7 +62,6 @@ op <- clean_operation_aspe() %>%
   filter(
     protocol %in% c("complete", "partial_by_point", "partial_over_bank")
   )
-unique(op$protocol)
 
 ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
 unique(ele_sampling$prelevement_type)
@@ -90,7 +88,7 @@ species_occurence <- fish_batch %>%
 
 ```r
 species |>
-  filter(species_code == "ATH")
+  filter(species_code == "LPX")
 
 species %>% filter(str_detect(latin_name, "Mugilidae"))
 species[species$species_code == "MUC", ]$common_name_fr
@@ -105,10 +103,10 @@ species_occurence |> filter(str_detect(species_code, "MU[A-Z]"))
 # - clean only fish species, remove genra solved species, look at how much it removed? I.e.the ones who do not have an accepted name but that have one word name, finish by spp. or sp. or non latin name ("Hybride brème-gardon")
 # - get maximum length for missing species?
 fish_batch_ok <- fish_batch |>
-  filter(!species_code %in% species_to_remove()) |>
+  filter(!species_code %in% species_code_to_remove()) |>
   mutate(species_code = str_replace_all(
     species_code,
-    species_replacement_list()
+    species_code_to_replace()
   )
   )
 
@@ -118,8 +116,7 @@ species_code_present <- unique(
 species_present <- species |>
   filter(species_code %in% species_code_present)
 species_syn_aspe <- unique(species_present$latin_name) |>
-    rfishbase::synonyms() %>%
-    select(
+    rfishbase::synonyms() %>% select(
     provided_name = synonym,
     valid_name = Species,
     Comment = Status
@@ -159,7 +156,7 @@ check_size_ind_measure <- ind_measure %>%
 ```r
 #| id: sp-na-max-size
 check_size_ind_measure |>
-  filter(size > maximal_length_mm) 
+  filter(size > (maximal_length_mm + maximal_length_mm * 10/100))
 ```
 
 ```r
@@ -176,6 +173,7 @@ n_na_max_length / nrow(check_size_ind_measure)
 
 ## Filter samplings based on sensible default
 
+
 ```r
 #| id: point-group
 filtered_sampling <- filter_operation_batch_measure(
@@ -191,6 +189,109 @@ filtered_sampling <- filter_operation_batch_measure(
   fish_batch = fish_batch,
   ind_measure = ind_measure
 )
+
+sanatize_species_code <- function(
+  data = get_fish_batch_aspe(),
+  species_var = species_code,
+  species_to_remove = species_code_to_remove(),
+  species_to_replace = species_code_to_replace()
+){
+  data <- data |>
+    filter(!{{species_var}} %in% species_to_remove) |>
+    mutate({{species_var}} := str_replace_all(
+      {{species_var}},
+      species_to_replace
+    )
+    )
+  data
+}
+sanatize_species_code(
+  data = filtered_sampling$fish_batch
+)
+
+check_aspe_fish_species <- function(
+  species = c("ABL", "TRF"),
+  species_ref = cleaning_species_ref_aspe()
+){
+  species <- unique(species)
+  # Check all provided code are in ref:
+  species_mask_ref <- species %in% species_ref$species_code
+  if (!all(species_mask_ref)) {
+    warning("Missing species in reference: ",
+            paste(species[!species_mask_ref], collapse = ", "),
+            ". Please check provided species names.")
+  }
+
+  # Check species to fishbase
+  species_ref <-  species_ref |>
+    dplyr::filter(species_code %in% species)
+  latin_names <- dplyr::pull(species_ref, latin_name)
+
+  latin_names_valid <- latin_names |>
+    rfishbase::validate_names()
+
+  if (any(is.na(latin_names_valid))) {
+    warning(
+      "Missing species in fishbase: ",
+      paste(latin_names[is.na(latin_names_valid)], collapse = ", "),
+      ", corresponding to ",
+      paste(species_ref$species_code[is.na(latin_names_valid)], collapse = ", "),
+      ". Please check reference table or the provided species.")
+  }
+
+}
+check_aspe_fish_species(c("ABL", "ANG", "TRT", "LPX"))
+
+
+fish_batch_ok <- filtered_sampling$fish_batch |>
+  filter(!species_code %in% species_code_to_remove()) |>
+  mutate(species_code = str_replace_all(
+    species_code,
+    species_code_to_replace()
+  )
+  )
+
+fish_batch_ok |> unique(.data$species_code) |> rfishbase::validate_names()
+
+ind_measure_ok <- filtered_sampling$ind_measure |>
+  filter(!species_code %in% species_code_to_remove()) |>
+  mutate(species_code = str_replace_all(
+    species_code,
+    species_code_to_replace()
+  )
+  )
+
+check_size_ind_measure <- ind_measure_ok %>%
+  select(measure_id, batch_id, species_code, size) %>%
+  left_join(
+    select(species, species_code, latin_name, maximal_length_mm),
+    by = join_by(species_code)
+  )
+
+check_size_fish_batch <- fish_batch_ok %>%
+  select(batch_id, batch_type, species_code, max_length) %>%
+  left_join(
+    select(species, species_code, latin_name, maximal_length_mm),
+    by = join_by(species_code)
+  )
+
+## TODO: add warning in future check
+check_size_ind_measure |>
+  filter(is.na(maximal_length_mm)) |>
+  distinct(species_code, latin_name)
+check_size_fish_batch |>
+  filter(is.na(maximal_length_mm)) |>
+  distinct(species_code, latin_name)
+
+check_size_ind_measure %>%
+  filter(size > maximal_length_mm) %>%
+  arrange(desc(size - maximal_length_mm))
+check_size_fish_batch %>%
+  filter(max_length > maximal_length_mm) %>%
+  arrange(desc(max_length - maximal_length_mm))
+
+
+
 ````
 
 ## Generate fish size from batch
