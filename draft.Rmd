@@ -27,6 +27,7 @@ build_vignettes()
 ```
 
 
+
 ```r
 #| id: proto-function
 list_optional_files()
@@ -53,6 +54,8 @@ species <- cleaning_species_ref_aspe() |> as_tibble()
 ref_batch_type <- get_ref_type_batch_aspe() |> as_tibble()
 raw_fish_batch <- get_fish_batch_aspe() |> as_tibble()
 raw_individual_measurement <- get_individual_measurement_aspe() |> as_tibble()
+raw_ref_length <- get_ref_type_length_aspe() |> as_tibble()
+ref_length <- cleaning_ref_length_type_aspe() |> as_tibble()
 ```
 
 
@@ -64,7 +67,6 @@ op <- clean_operation_aspe() %>%
   )
 
 ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
-unique(ele_sampling$prelevement_type)
 point_group <- cleaning_point_group()
 ```
 
@@ -75,83 +77,195 @@ ind_measure <- clean_individual_measurement_aspe(
 )
 ```
 
-```r
-species_occurence <- fish_batch %>%
-  distinct(operation_id, species_code) |>
-  group_by(species_code) |>
-  summarise(occurence = n())
+## Filter samplings based on sensible default
 
-```
-
-
-## Get species name synonym
-
-```r
-species |>
-  filter(species_code == "LPX")
-
-species %>% filter(str_detect(latin_name, "Mugilidae"))
-species[species$species_code == "MUC", ]$common_name_fr
-species[species$species_code == "MUP", ]$latin_name
-species_occurence |> filter(species_code %in% c("LOF", "LOL", "LOQ"))
-species_occurence |> filter(str_detect(species_code, "MU[A-Z]"))
-
-```
-
-```r
-# TODO:
-# - clean only fish species, remove genra solved species, look at how much it removed? I.e.the ones who do not have an accepted name but that have one word name, finish by spp. or sp. or non latin name ("Hybride brème-gardon")
-# - get maximum length for missing species?
-fish_batch_ok <- fish_batch |>
-  filter(!species_code %in% species_code_to_remove()) |>
-  mutate(species_code = str_replace_all(
-    species_code,
-    species_code_to_replace()
-  )
-  )
-
-species_code_present <- unique(
-  c(fish_batch_ok$species_code)
+```{r}
+#| id: filter-op
+filtered_sampling <- filter_operation_batch_measure(
+  operation = op,
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = point_group,
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = ele_sampling,
+  max_passage_number = 1,
+  fish_batch = fish_batch,
+  ind_measure = ind_measure
 )
-species_present <- species |>
-  filter(species_code %in% species_code_present)
-species_syn_aspe <- unique(species_present$latin_name) |>
-    rfishbase::synonyms() %>% select(
-    provided_name = synonym,
-    valid_name = Species,
-    Comment = Status
-  ) %>%
-  as_tibble() %>%
-  left_join(
-    select(species, species_code, latin_name),
-    by = join_by(provided_name == latin_name)
-  )
-species_syn_aspe %>%
-  print(n = Inf)
 
 ```
 
+## Sanitize species code and check there are alright
+
 ```r
-species |>
-  filter(
-    latin_name %in%
-      species_syn_aspe[is.na(species_syn_aspe$valid_name), ]$provided_name
-  )
-species_syn_aspe |>
-  filter(is.na(valid_name)) |>
-  print(n = Inf)
+# Sanitize
+## TODO: adding fishbase validated names in cleaning_species_ref_aspe()
+filtered_sampling[c("fish_batch", "ind_measure")] <-
+  filtered_sampling[c("fish_batch", "ind_measure")] |>
+    purrr::map(\(x) sanitize_species_code(data = x))
+summary(as.factor(filtered_sampling$fish_batch$length_type))
+# Check
+# TODO: check on validated names, i.e. output different than entry
+filtered_sampling[c("fish_batch", "ind_measure")] |>
+  purrr::map(\(x) check_aspe_fish_species(species = x$species_code)
+)
+# Return Salmo trutta because it is ambiguous between brown (river) trout and sea trout but there are the same species and they work with fish base.
 ```
 
 ## Check maximum length
 
 ```r
-check_size_ind_measure <- ind_measure %>%
-  select(measure_id, species_code, size) %>%
-  left_join(
-    select(species, species_code, latin_name, maximal_length_mm),
-    by = join_by(species_code)
-  )
+# TODO:
+## 1. Add filter for maximum length in batch and ind_measure
+## 2. Faster batch functions, grouping by batch
+check_size <-
+  filtered_sampling[c("fish_batch", "ind_measure")] |>
+    map(\(x)
+      left_join(x,
+        select(species, species_code, latin_name, maximal_length_mm),
+        by = join_by(species_code)
+      )
+    )
+# Check that every species has a maximal length value
+check_size |>
+  map(\(x) filter(x, is.na(maximal_length_mm)))
+
+check_size$fish_batch |>
+  filter(max_length > maximal_length_mm | min_length > maximal_length_mm ) |>
+  arrange(batch_id) |>
+  select(
+    batch_id, species_code, batch_type,
+    max_length, maximal_length_mm, length_type
+  ) |>
+  print(n = 60)
+
+filtered_sampling$ind_measure |>
+  filter(batch_id %in% c(1265524)) |>
+  print(n = 60)
+
+# Sanitize raw_individual_measurement:
+over_size_ind_measure <-
+  check_size$ind_measure |>
+    mutate(size = dplyr::replace_when(size, size > maximal_length_mm ~ NA))
+
+# For batch S/L and I which have max_length over maximal known length,
+# we can recompute the max_length
+
+over_size_ind_measure |>
+  arrange(batch_id) |>
+  select(batch_id, species_code, size, latin_name, maximal_length_mm)
+
 ```
+```{r}
+#| id: length-conversion
+species_fork_length <- filtered_sampling$fish_batch |>
+  distinct(length_type, species_code) |>
+  filter(length_type == "fork") |>
+  pull(species_code)
+
+species_fork_length_latin <- species |>
+  filter(species_code %in% species_fork_length) |>
+  pull(latin_name)
+
+ll <- rfishbase::length_length(species_list = species_fork_length_latin)
+tl_fl <- ll |>
+  filter(Length1 == "TL", Length2 == "FL")
+tl_fl |> distinct(Species) |> pull(Species)
+species_no_data <- species_fork_length_latin[!species_fork_length_latin %in% unique(tl_fl$Species)] |> sort()
+enframe(species_no_data, value = "latin_name") |>
+  left_join(species |> select(species_code, latin_name))
+
+filtered_sampling$fish_batch |>
+  filter(length_type == "fork")
+
+sanatize_size_aspe <- function(
+  fish_batch = clean_fish_batch(),
+  ind_measure = clean_individual_measurement_aspe(),
+  species_ref = cleaning_species_ref_aspe(),
+  convertion_vector = coefficients_fork2total()
+
+) {
+
+  # 1. Convert fork to total length
+  ## A. get convertion table from fish base
+  ### Average coefficients by species
+  ## B. get manual convertion table
+  ## C. Extract fork measurement
+  ## D. Convert in a new size variable in ind_measure and fish batch
+  ## E. check (all were converted) and summarise conversion numbers
+  ## F. Replace numbers fork measurement
+
+  # 2. Check size against the maximum reported
+
+}
+
+
+coefficients_fork2total <- function() {
+  c(
+    ALA = 1/.91,#Fishbase: https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Alalo_u1.gif&genusname=Alosa&speciesname=alosa&id=101
+    LOF =  1, # Tail rect, minor difference
+    LPP = 1, # Tail rect no difference https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lapla_u3.jpg&genusname=Lampetra&speciesname=planeri&id=4481
+    CHE = 1/.940, #Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lecep_u2.jpg&genusname=Squalius&speciesname=cephalus&id=4482
+    #Fishbase taken from Leuciscus leuciscus which is very close:
+    #https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
+    VAR = 1/.919,
+    MUP = 1.070,# Chelon ramada is the valid synonym: https://www.fishbase.se/popdyn/LLRelationshipList.php?ID=4583&GenusName=Chelon&SpeciesName=ramada&fc=359
+    GTN = 1.0,#Fisbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nemel_u3.gif&genusname=Neogobius&speciesname=melanostomus&id=12019
+    TAC = 1/.982,#Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Onmyk_m1.jpg&genusname=Oncorhynchus&speciesname=mykiss&id=239
+    PAP = 1/.927,#Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Papic_u2.jpg&genusname=Pachychilon&speciesname=pictum&id=26627
+    #Fishbase taken from Leuciscus leuciscus which is very close:
+    #https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
+    TOX = 1/.919,
+    PER = 1/.953, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Peflu_u0.gif&genusname=Perca&speciesname=fluviatilis&id=358
+    GKS = 1.0, # Tail rect no difference: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nekes_u0.jpg&genusname=Ponticola&speciesname=kessleri&id=25977
+    GDL = 1.0, # Tail rect no difference: https://fishbase.se/photos/ThumbnailsSummary.php?ID=65128
+    SAN = 1/.936, # https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Saluc_u2.jpg&genusname=Sander&speciesname=lucioperca&id=360
+    APR = 1.0 # Tail almost rect, no difference measured for Zingel genra in Fishbase (Z. streber, Z. Zingel)
+  )
+}
+
+missing_length_length_to_fill <- as_tibble(matrix(NA, nrow = length(species_no_data), ncol = length(colnames(tl_fl)), dimnames = list(NULL, colnames(tl_fl))))
+missing_length_length_to_fill$Species <- species_no_data
+missing_length_length_to_fill$Length1 <- "TL"
+missing_length_length_to_fill$Length2 <- "FL"
+
+
+
+dir.create(here::here("data-raw"))
+readr::write_csv2(missing_length_length_to_fill,
+  file = here::here("data-raw", "missing_length_length.csv"),
+  na = ""
+)
+
+ti <- species |> filter(latin_name %in% species_no_data) |> pull(species_code)
+
+filtered_sampling$fish_batch |>
+  filter(species_code %in% ti, length_type == "fork") %>%
+  group_by(species_code) |>
+  summarise(n = sum(number))  |>
+  arrange(desc(n)) |>
+  left_join(species |> select(species_code, latin_name))
+sum(filtered_sampling$fish_batch$number)
+
+tl_fl |>
+  distinct(Species) |>
+  mutate(genra = str_extract(Species, '[A-Za-z]+')) |>
+  distinct(genra)
+missing_length_length_to_fill |>
+  distinct(Species) |>
+  mutate(genra = str_extract(Species, '[A-Za-z]+')) |>
+  distinct(genra)
+  
+
+
+summary(as.factor( |> $length_type))
+
+
+```
+
+
 
 ```r
 #| id: sp-na-max-size
@@ -171,110 +285,10 @@ n_na_max_length / nrow(check_size_ind_measure)
 
 ```
 
-## Filter samplings based on sensible default
+
 
 
 ```r
-#| id: point-group
-filtered_sampling <- filter_operation_batch_measure(
-  operation = op,
-  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
-  op_objective_to_exclude = vec_op_objective_to_exclude(),
-  oldest_sampling_date = "1995-01-01",
-  omit_na_site = TRUE,
-  point_group = point_group,
-  min_prop_point_group_on_bank = .999,
-  ele_sampling = ele_sampling,
-  max_passage_number = 1,
-  fish_batch = fish_batch,
-  ind_measure = ind_measure
-)
-
-sanatize_species_code <- function(
-  data = get_fish_batch_aspe(),
-  species_var = species_code,
-  species_to_remove = species_code_to_remove(),
-  species_to_replace = species_code_to_replace()
-){
-  data <- data |>
-    filter(!{{species_var}} %in% species_to_remove) |>
-    mutate({{species_var}} := str_replace_all(
-      {{species_var}},
-      species_to_replace
-    )
-    )
-  data
-}
-sanatize_species_code(
-  data = filtered_sampling$fish_batch
-)
-
-check_aspe_fish_species <- function(
-  species = c("ABL", "TRF"),
-  species_ref = cleaning_species_ref_aspe()
-){
-  species <- unique(species)
-  # Check all provided code are in ref:
-  species_mask_ref <- species %in% species_ref$species_code
-  if (!all(species_mask_ref)) {
-    warning("Missing species in reference: ",
-            paste(species[!species_mask_ref], collapse = ", "),
-            ". Please check provided species names.")
-  }
-
-  # Check species to fishbase
-  species_ref <-  species_ref |>
-    dplyr::filter(species_code %in% species)
-  latin_names <- dplyr::pull(species_ref, latin_name)
-
-  latin_names_valid <- latin_names |>
-    rfishbase::validate_names()
-
-  if (any(is.na(latin_names_valid))) {
-    warning(
-      "Missing species in fishbase: ",
-      paste(latin_names[is.na(latin_names_valid)], collapse = ", "),
-      ", corresponding to ",
-      paste(species_ref$species_code[is.na(latin_names_valid)], collapse = ", "),
-      ". Please check reference table or the provided species.")
-  }
-
-}
-check_aspe_fish_species(c("ABL", "ANG", "TRT", "LPX"))
-
-
-fish_batch_ok <- filtered_sampling$fish_batch |>
-  filter(!species_code %in% species_code_to_remove()) |>
-  mutate(species_code = str_replace_all(
-    species_code,
-    species_code_to_replace()
-  )
-  )
-
-fish_batch_ok |> unique(.data$species_code) |> rfishbase::validate_names()
-
-ind_measure_ok <- filtered_sampling$ind_measure |>
-  filter(!species_code %in% species_code_to_remove()) |>
-  mutate(species_code = str_replace_all(
-    species_code,
-    species_code_to_replace()
-  )
-  )
-
-check_size_ind_measure <- ind_measure_ok %>%
-  select(measure_id, batch_id, species_code, size) %>%
-  left_join(
-    select(species, species_code, latin_name, maximal_length_mm),
-    by = join_by(species_code)
-  )
-
-check_size_fish_batch <- fish_batch_ok %>%
-  select(batch_id, batch_type, species_code, max_length) %>%
-  left_join(
-    select(species, species_code, latin_name, maximal_length_mm),
-    by = join_by(species_code)
-  )
-
 ## TODO: add warning in future check
 check_size_ind_measure |>
   filter(is.na(maximal_length_mm)) |>
@@ -292,7 +306,7 @@ check_size_fish_batch %>%
 
 
 
-````
+```
 
 ## Generate fish size from batch
 
@@ -369,5 +383,23 @@ ele_sampling %>%
 
 ```r
 op_description <- clean_description_operation_aspe() |> as_tibble()
+```
+
+
+```{r}
+# pak::pkg_install("PascalIrz/aspe")
+library(aspe)
+data(data_dictionnaire)
+view(data_dictionnaire)
+length_fq <- rfishbase::length_freq("Salmo trutta")
+ll_TRF <- rfishbase::length_length("Salmo trutta")
+ll_TRF |>
+  filter(Length1 == "FL", Length2 == "TL")
+ll_ALA <- rfishbase::length_length("Alosa alosa")
+ll_ALA |>
+  filter(Length1 == "FL", Length2 == "TL")
+90*.88
+
+
 ```
 

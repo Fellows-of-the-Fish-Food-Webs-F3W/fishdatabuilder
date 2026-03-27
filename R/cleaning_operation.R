@@ -1076,9 +1076,41 @@ cleaning_ref_batch_type_aspe <- function(
   ref_batch
 }
 
+#' Clean and standardize length reference data from ASPE database
+#'
+#' Clean length reference data by renaming columns, and translating them.
+#'
+#' @param ref_length A data frame containing length reference data.
+#'   By default uses `get_ref_type_length_aspe()` to retrieve raw data.
+#'
+#' @return A data frame
+#
+#' @importFrom dplyr select rename_with
+#' @export
+cleaning_ref_length_type_aspe <- function(
+  ref_length = get_ref_type_length_aspe()
+) {
+
+  # Remove column prefix
+  ref_length <- dplyr::rename_with(ref_length,
+    ~gsub("tlo_", "", .x, fixed = TRUE)
+  )
+  # Replace length label
+  ref_length <- ref_length |>
+    dplyr::mutate(
+      libelle = dplyr::recode(libelle,
+        !!!get_rev_vec_name_val(replacement_length_type_label())
+      )
+    )
+  # Replace column names
+  ref_length <- dplyr::select(ref_length,
+    dplyr::any_of(replacement_length_ref_col()))
+  ref_length
+}
+
 #' Clean and standardize batch reference data from ASPE database
 #'
-#' Clean batch data by renaming columns, and translating them, joining batch names, species code and opration ids.
+#' Clean batch data by renaming columns, and translating them, joining batch names, species code, type of body length method, and operation ids.
 #'
 #' @param fish_batch A data frame containing raw batch data.
 #'   By default uses `get_fish_batch_aspe()` to retrieve raw data.
@@ -1088,6 +1120,9 @@ cleaning_ref_batch_type_aspe <- function(
 #'
 #' @param species_ref A data frame containing cleaned species reference data.
 #'   By default uses `cleaning_species_ref_aspe()` to retrieve cleaned data.
+#'
+#' @param length_ref A data frame containing cleaned length reference data.
+#'   By default uses `cleaning_ref_length_type_aspe()` to retrieve cleaned data.
 #'
 #' @param detail_sampling A data frame containing cleaned elementary sampling data.
 #'   By default uses `cleaning_elementary_sampling()` to retrieve cleaned data.
@@ -1100,6 +1135,7 @@ clean_fish_batch <- function(
   fish_batch = get_fish_batch_aspe(),
   batch_ref =  cleaning_ref_batch_type_aspe(),
   species_ref = cleaning_species_ref_aspe(),
+  length_ref = cleaning_ref_length_type_aspe(),
   detail_sampling = cleaning_elementary_sampling()
 ) {
   # Translate and select columns
@@ -1123,7 +1159,12 @@ clean_fish_batch <- function(
       dplyr::select(detail_sampling, prelevement_id, operation_id),
       by = dplyr::join_by(prelevement_id)
     ) %>%
-    dplyr::select(-species_id, -batch_type_id) %>%
+    # Get type of length measurement
+    dplyr::left_join(
+      length_ref,
+      by = dplyr::join_by(length_type_id)
+    ) %>%
+    dplyr::select(-species_id, -batch_type_id, -length_type_id) %>%
     dplyr::select(batch_id, prelevement_id, operation_id,
       species_code, batch_type, everything())
 

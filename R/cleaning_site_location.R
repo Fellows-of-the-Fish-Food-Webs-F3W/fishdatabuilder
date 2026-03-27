@@ -39,7 +39,7 @@
 #' \dontrun{
 #' # Using default data frames and WGS84 output
 #' clean_data <- clean_station_aspe()
-#' 
+#'
 #' # With custom data frames and CRS
 #' custom_stations <- data.frame(
 #'   sta_site_id = c("S1", "S2"),
@@ -364,6 +364,13 @@ get_fish_batch_aspe <- function(file = "lot_poissons.csv") {
 #' Default file: `"mesure_individuelle.csv"`
 #' @export
 get_individual_measurement_aspe <- function(file = "mesure_individuelle.csv") {
+  read_raw_data(file_name = file)
+}
+#' @rdname raw_data_accessors
+#' @details For `get_ref_type_length_aspe()`: retrieve method of length measurement.
+#' Default file: `"ref_type_longueur.csv"`
+#' @export
+get_ref_type_length_aspe <- function(file = "ref_type_longueur.csv") {
   read_raw_data(file_name = file)
 }
 

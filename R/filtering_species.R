@@ -257,7 +257,8 @@ sanitize_species_code <- function(
 #' @export
 species_latin_name_to_replace <- function() {
   c(
-    Atherinapresbyter = "Atherina presbyter"
+    Atherinapresbyter = "Atherina presbyter",
+    "Gymnocephalus cernuus" = "Gymnocephalus cernua" # accepted name in fishbase
   )
 }
 
