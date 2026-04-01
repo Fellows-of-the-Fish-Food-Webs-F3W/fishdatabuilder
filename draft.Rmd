@@ -160,112 +160,221 @@ over_size_ind_measure |>
 ```
 ```{r}
 #| id: length-conversion
-species_fork_length <- filtered_sampling$fish_batch |>
-  distinct(length_type, species_code) |>
-  filter(length_type == "fork") |>
-  pull(species_code)
-
-species_fork_length_latin <- species |>
-  filter(species_code %in% species_fork_length) |>
-  pull(latin_name)
-
-ll <- rfishbase::length_length(species_list = species_fork_length_latin)
+ll <- rfishbase::length_length(species_list = species_fork_length$latin_name)
 tl_fl <- ll |>
-  filter(Length1 == "TL", Length2 == "FL")
-tl_fl |> distinct(Species) |> pull(Species)
+  filter(Length1 == "TL", Length2 == "FL") |> 
+  group_by(Species) |>
+  summarise(a = mean(a), b = mean(b))
+stopifnot(all(!is.na(tl_fl[["a"]])))
+stopifnot(all(!is.na(tl_fl[["b"]])))
 species_no_data <- species_fork_length_latin[!species_fork_length_latin %in% unique(tl_fl$Species)] |> sort()
 enframe(species_no_data, value = "latin_name") |>
   left_join(species |> select(species_code, latin_name))
 
-filtered_sampling$fish_batch |>
-  filter(length_type == "fork")
+nb_ind_fork <- filtered_sampling$fish_batch |>
+  filter(length_type == "fork") %>%
+  summarise(n = sum(number)) |> pull(n)
+nb_ind_fork / sum(filtered_sampling$fish_batch$number)
 
+```
+```{r}
 sanatize_size_aspe <- function(
   fish_batch = clean_fish_batch(),
   ind_measure = clean_individual_measurement_aspe(),
   species_ref = cleaning_species_ref_aspe(),
-  convertion_vector = coefficients_fork2total()
-
-) {
+  fishbase_length_length = NULL,
+  conversion_vector = coefficients_fork2total(),
+  convert_intercept_cm2mm = TRUE
+){
 
   # 1. Convert fork to total length
   ## A. get convertion table from fish base
+  ### Get species list with fork measurement
+  species_code_name <- species |>
+    select(species_code, latin_name)
+  batch_fork_length <- fish_batch |>
+    filter(length_type == "fork")
+    species_fork_length <- batch_fork_length |>
+    distinct(species_code) |>
+    left_join(species_code_name,
+      by = join_by(species_code)
+    )
+  ### Get the fishbase data if absent
+  if (is.null(fishbase_length_length)) {
+    fishbase_length_length <- rfishbase::length_length(
+      species_list = species_fork_length$latin_name
+    )
+  }
   ### Average coefficients by species
+  fishbase_length_length <- fishbase_length_length |>
+    filter(Length1 == "TL", Length2 == "FL") |> 
+    group_by(Species) |>
+    summarise(a = mean(a), b = mean(b)) |>
+    # Convert fishbase intercept from cm to mm
+    ## See: https://www.fishbase.se/manual/fishbasethe_lengthlength_table.htm
+    mutate(a = a * 10)
+  ### Check coefficients
+  stopifnot(all(!is.na(fishbase_length_length[["a"]])))
+  stopifnot(all(!is.na(fishbase_length_length[["b"]])))
+  stopifnot(all(fishbase_length_length[["b"]] < 1.2))
+  fishbase_length_length <- fishbase_length_length |>
+    left_join(species_code_name, by = join_by(Species == latin_name))
+  species_not_in_fishbase <- species_fork_length |>
+    filter(!species_code %in% fishbase_length_length$species_code)
+  ### TODO: collapse into a message
+
   ## B. get manual convertion table
+  ### Convert into table
+  conversion_vector <- conversion_vector |>
+    enframe(name = "species_code", value = "b")  |>
+    mutate(a = 0)
+  ### Check how much species are missing
+  species_not_in_conversion_vector <- species_not_in_fishbase |>
+    filter(!species_code %in% conversion_vector$species_code)
+  ###TODO: collapse into a message if
+  ###nrow(species_not_in_conversion_vector) > 0
+  stopifnot(nrow(species_not_in_conversion_vector) == 0)
+  ### bind all conversion factors
+  fish_length_length <- rbind(
+    fishbase_length_length |> select(species_code, a, b),
+    conversion_vector
+  )
+  ### Check carefully fish_length_length
   ## C. Extract fork measurement
+  ### Find all batch id
+  ind_measure_fork <- ind_measure |>
+    filter(batch_id %in% batch_fork_length$batch_id)
   ## D. Convert in a new size variable in ind_measure and fish batch
+  ind_measure_fork <- ind_measure_fork |>
+    left_join(fish_length_length, by = join_by(species_code)) |>
+    mutate(
+      size_fl = size,
+      size = a + size * b
+    )
+  batch_fork_length <- batch_fork_length |>
+    left_join(fish_length_length, by = join_by(species_code)) |>
+    mutate(
+      min_length_fl = min_length,
+      max_length_fl = max_length,
+      length_type = "total"
+    ) |>
+    mutate(across(c(min_length, max_length), ~a + . * b))
   ## E. check (all were converted) and summarise conversion numbers
+  stopifnot(all(ind_measure_fork$size >= ind_measure_fork$size_fl))
+  stopifnot(
+    all(
+    na.omit(batch_fork_length$min_length) >=
+      na.omit(batch_fork_length$min_length_fl)
+    )
+  )
+  stopifnot(
+    all(
+    na.omit(batch_fork_length$max_length) >=
+      na.omit(batch_fork_length$max_length_fl)
+    )
+  )
   ## F. Replace numbers fork measurement
-
+  previous_measure_id <- ind_measure$measure_id
+  ind_measure <- rbind(
+    ind_measure |> filter(!batch_id %in% batch_fork_length$batch_id),
+    ind_measure_fork |>
+      select(-a, -b, -size_fl)
+  )
+  previous_batch_id <- fish_batch$batch_id
+  fish_batch <- rbind(
+    fish_batch |> filter(!batch_id %in% batch_fork_length$batch_id),
+    batch_fork_length |>
+      select(-a, -b, -min_length_fl, -max_length_fl)
+  )
+  stopifnot(length(unique(ind_measure$measure_id))== nrow(ind_measure))
+  stopifnot(all(previous_measure_id %in% ind_measure$measure_id))
+  stopifnot(length(unique(fish_batch$batch_id))== nrow(fish_batch))
+  stopifnot(all(previous_batch_id %in% fish_batch$batch_id))
   # 2. Check size against the maximum reported
+  ind_measure <- ind_measure |>
+        left_join(
+          select(species, species_code, maximal_length_mm),
+          by = join_by(species_code)
+        )
+  ### Check that every species has a maximal length value
+  stopifnot(!any(is.na(ind_measure$maximal_length_mm)))
+  # stopifnot(!check_size |> map_lgl(\(x) any(is.na(x$maximal_length_mm))))
+  over_sized_ind_measure_id <- ind_measure |> 
+    filter(size > maximal_length_mm) |>
+    pull(measure_id)
+  ind_measure <- ind_measure |>
+      mutate(
+      size = dplyr::replace_when(
+        size,
+        size > maximal_length_mm ~ NA)
+    ) |>
+    select(-maximal_length_mm)
 
-}
+  ### Sanatize S/L batch max_length with ind_measure
+  sl_batch <- fish_batch |>
+    filter(batch_type %in% c("S/L"))
+  sl_batch_id <- sl_batch |> pull(batch_id)
+  min_max_batch_ind_measure <- ind_measure %>%
+    filter(batch_id %in% sl_batch_id) |>
+    group_by(batch_id) |>
+    summarise(
+      min_size = min(size, na.rm = TRUE),
+      max_size = max(size, na.rm = TRUE)
+    )
+  ### Replace min/max in batch S/L:
+  sl_batch <- sl_batch |>
+    left_join(
+      min_max_batch_ind_measure,
+      by = join_by(batch_id)
+    ) |>
+    mutate(
+      min_length = min_size,
+      max_length = max_size
+    )  |>
+    select(-min_size, -max_size)
+  fish_batch <- rbind(
+    sl_batch,
+    fish_batch |> filter(!batch_type %in% "S/L")
+  )
+  ### Check fish_batch measurement:
+  fish_batch <- fish_batch |>
+        left_join(
+          select(species, species_code, maximal_length_mm),
+          by = join_by(species_code)
+        )
+  ### Check that every species has a maximal length value
+  stopifnot(!any(is.na(fish_batch$maximal_length_mm)))
+  over_sized_fish_batch_id <- fish_batch |> 
+    filter(max_length > maximal_length_mm | min_length > maximal_length_mm) |>
+    pull(batch_id)
+  ### Replace size over maximum reported by NA
+  fish_batch <- fish_batch |>
+      mutate(
+      min_length = dplyr::replace_when(
+        max_length, min_length > maximal_length_mm ~ NA),
+      max_length = dplyr::replace_when(
+        max_length, max_length > maximal_length_mm ~ NA)
+    ) |>
+    select(-maximal_length_mm)
 
-
-coefficients_fork2total <- function() {
-  c(
-    ALA = 1/.91,#Fishbase: https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Alalo_u1.gif&genusname=Alosa&speciesname=alosa&id=101
-    LOF =  1, # Tail rect, minor difference
-    LPP = 1, # Tail rect no difference https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lapla_u3.jpg&genusname=Lampetra&speciesname=planeri&id=4481
-    CHE = 1/.940, #Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lecep_u2.jpg&genusname=Squalius&speciesname=cephalus&id=4482
-    #Fishbase taken from Leuciscus leuciscus which is very close:
-    #https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
-    VAR = 1/.919,
-    MUP = 1.070,# Chelon ramada is the valid synonym: https://www.fishbase.se/popdyn/LLRelationshipList.php?ID=4583&GenusName=Chelon&SpeciesName=ramada&fc=359
-    GTN = 1.0,#Fisbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nemel_u3.gif&genusname=Neogobius&speciesname=melanostomus&id=12019
-    TAC = 1/.982,#Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Onmyk_m1.jpg&genusname=Oncorhynchus&speciesname=mykiss&id=239
-    PAP = 1/.927,#Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Papic_u2.jpg&genusname=Pachychilon&speciesname=pictum&id=26627
-    #Fishbase taken from Leuciscus leuciscus which is very close:
-    #https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
-    TOX = 1/.919,
-    PER = 1/.953, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Peflu_u0.gif&genusname=Perca&speciesname=fluviatilis&id=358
-    GKS = 1.0, # Tail rect no difference: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nekes_u0.jpg&genusname=Ponticola&speciesname=kessleri&id=25977
-    GDL = 1.0, # Tail rect no difference: https://fishbase.se/photos/ThumbnailsSummary.php?ID=65128
-    SAN = 1/.936, # https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Saluc_u2.jpg&genusname=Sander&speciesname=lucioperca&id=360
-    APR = 1.0 # Tail almost rect, no difference measured for Zingel genra in Fishbase (Z. streber, Z. Zingel)
+  list(
+    ind_measure = ind_measure,
+    fish_batch = fish_batch,
+    fish_length_length = fish_length_length,
+    over_sized_ind_measure_id = over_sized_ind_measure_id,
+    over_sized_fish_batch_id = over_sized_fish_batch_id
   )
 }
 
-missing_length_length_to_fill <- as_tibble(matrix(NA, nrow = length(species_no_data), ncol = length(colnames(tl_fl)), dimnames = list(NULL, colnames(tl_fl))))
-missing_length_length_to_fill$Species <- species_no_data
-missing_length_length_to_fill$Length1 <- "TL"
-missing_length_length_to_fill$Length2 <- "FL"
-
-
-
-dir.create(here::here("data-raw"))
-readr::write_csv2(missing_length_length_to_fill,
-  file = here::here("data-raw", "missing_length_length.csv"),
-  na = ""
+ti <- sanatize_size_aspe(
+  fish_batch = filtered_sampling$fish_batch,
+  ind_measure = filtered_sampling$ind_measure,
+  species_ref = species,
+  fishbase_length_length = ll,
+  conversion_vector = coefficients_fork2total()
 )
 
-ti <- species |> filter(latin_name %in% species_no_data) |> pull(species_code)
-
-filtered_sampling$fish_batch |>
-  filter(species_code %in% ti, length_type == "fork") %>%
-  group_by(species_code) |>
-  summarise(n = sum(number))  |>
-  arrange(desc(n)) |>
-  left_join(species |> select(species_code, latin_name))
-sum(filtered_sampling$fish_batch$number)
-
-tl_fl |>
-  distinct(Species) |>
-  mutate(genra = str_extract(Species, '[A-Za-z]+')) |>
-  distinct(genra)
-missing_length_length_to_fill |>
-  distinct(Species) |>
-  mutate(genra = str_extract(Species, '[A-Za-z]+')) |>
-  distinct(genra)
-  
-
-
-summary(as.factor( |> $length_type))
-
-
 ```
-
-
 
 ```r
 #| id: sp-na-max-size

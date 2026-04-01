@@ -25,6 +25,7 @@ use_r("cleaning_site_location")
 use_r("cleaning_operation")
 use_r("fish_batches")
 use_r("filtering_species")
+use_r("sanitize_fish_size")
 
 
 # Use test 
