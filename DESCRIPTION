@@ -8,7 +8,9 @@ Description: What the package does (one paragraph).
 License: GPL (>= 3)
 Suggests: 
     covr,
+    knitr,
     mockery,
+    quarto,
     testthat (>= 3.0.0),
     truncdist
 Config/testthat/edition: 3
@@ -18,3 +20,4 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
     pkgfilecache
+VignetteBuilder: quarto

@@ -1041,6 +1041,14 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
   species <- dplyr::select(species,
     dplyr::any_of(replacement_species_ref_col()))
 
+  # Fix species latin name
+  species <- dplyr::mutate(species,
+    latin_name = stringr::str_replace_all(
+      latin_name,
+      species_latin_name_to_replace()
+    )
+    )
+
   species
 }
 #' Clean and standardize batch reference data from ASPE database

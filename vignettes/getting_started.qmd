@@ -1,0 +1,161 @@
+---
+title: "Getting started"
+vignette: >
+  %\VignetteIndexEntry{Getting started}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(fishdatabuilder)
+library(magrittr)
+```
+
+We can extract the french fish monitoring data up to 2022. Those data have
+been archived on [Zenodo](https://zenodo.org/records/8099409) at the occasion
+of the publication of the [aspe](https://github.com/PascalIrz/aspe) R package
+used to manipulate those data.
+
+The first thing to do with the package is to download the zip database and to
+extract it:
+
+```{r example, eval = FALSE}
+# Download the data
+download_optional_data()
+# Extract the data
+extract_optional_data()
+```
+
+
+The data are located in the cache folder of the package,
+using the
+[`pkgfilecache`](https://cran.r-project.org/web/packages/pkgfilecache/) R
+package.
+
+Now that you did that, you should be able to list and load the files in the
+cache of the package:
+
+
+
+```{r file-list}
+head(list_optional_files())
+```
+
+You can get station data, clean them, and convert all of them in the same coordinates:
+
+```{r}
+station <- clean_station_aspe(
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
+  crs_to = 4326
+  )
+head(station)
+```
+
+## Access cleaned sampling objects
+
+```{r}
+#| id: list-cache-files
+# Cleaned operation files:
+op <- clean_operation_aspe()
+head(op)
+
+# Cleaned description of operation files:
+op_description <- clean_description_operation_aspe()
+head(op_description)
+
+# Cleaned elementary sampling
+elementary_sampling <- cleaning_elementary_sampling(
+  sampling = get_elementary_sampling_aspe(),
+  ref_sampling = get_ref_elementary_sampling_aspe(),
+  ref_passage = get_ref_passage_aspe()
+)
+head(elementary_sampling)
+
+# Cleaning point group
+point_group <- cleaning_point_group(
+  point_group = get_point_group_aspe(),
+  ref_point_group = get_ref_point_group_aspe()
+)
+head(point_group)
+
+# Cleaned fish batches (lot_poisson in french)
+fish_batch <- clean_fish_batch()
+head(fish_batch)
+
+# Cleaned individual measurement of fish from the batches
+ind_measure <- clean_individual_measurement_aspe()
+head(ind_measure)
+```
+
+## Filter sampling events and subsampling 
+
+You can filtered the dataset according to some criteria, by default that we believe relevant for spatio-temporal analysis.
+
+```r
+filtered_sampling <- filter_operation_batch_measure(
+  operation = op,
+  op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
+  op_objective_to_exclude = vec_op_objective_to_exclude(),
+  oldest_sampling_date = "1995-01-01",
+  omit_na_site = TRUE,
+  point_group = point_group,
+  min_prop_point_group_on_bank = .999,
+  ele_sampling = elementary_sampling,
+  max_passage_number = 1,
+  fish_batch = fish_batch,
+  ind_measure = ind_measure
+)
+names(filtered_sampling)
+head(filtered_sampling$operation)
+head(filtered_sampling$fish_batch)
+head(filtered_sampling$ind_measure)
+```
+
+## Generate fish individual size
+
+We sample sampling operations because it takes almost 50 minutes using parallelisation.
+
+```r
+operation_id_sample <- sample(op$operation_id, 100)
+batch_test <- fish_batch |>
+  filter(operation_id %in% operation_id_sample) |>
+  select(-c(
+    weight, estimated_weight, mep_id, tlo_id,
+    prelevement_id, operation_id
+  ))
+measure_test <- ind_measure |>
+  filter(operation_id %in% operation_id_sample) |>
+  select(-c(site_id:prelevement_id, measure_id))
+```
+
+Generate the individual body size from batches and individual measurements.
+
+```r
+options(mc.cores = 1)
+system.time({
+test <- get_size_from_batch(
+      batch = batch_test,
+      id_var = batch_id,
+      batch_type_var = batch_type,
+      nb_var = number,
+      min_var = min_length,
+      max_var = max_length,
+      species = species_code,
+      measure = measure_test,
+      measure_id_var = batch_id,
+      size_var = size)
+})
+
+test <- test |>
+  unnest(cols = size_mm)
+nrow(test)
+test |>
+  head
+```
+
