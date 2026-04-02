@@ -37,6 +37,9 @@ use_test("helpers")
 use_test("gen_size_from_fish_batch")
 use_test("filter-operation-batch-measure")
 use_test("filtering_species")
+use_test("convert-fork-to-total")
+use_test("remove-impossible-lengths")
+use_test("length-sanitization-integration")
 
 
 usethis::use_package("mockery", "Suggests")
