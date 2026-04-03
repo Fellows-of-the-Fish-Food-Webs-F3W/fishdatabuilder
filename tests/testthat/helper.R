@@ -85,3 +85,63 @@ create_correct_filter_data <- function() {
     )
   )
 }
+
+# Test size data
+
+create_test_length_data <- function() {
+  # Species reference
+  species_ref <- data.frame(
+    species_code = c("PER", "TRF", "ALA", "LOF", "UNKNOWN"),
+    latin_name = c("Perca fluviatilis", "Salmo trutta", "Alosa alosa", 
+                   "Barbatula barbatula", "Unknownus species"),
+    maximal_length_mm = c(600, 1000, 600, 120, 500)
+  )
+  
+  # Fish batch data
+  fish_batch <- data.frame(
+    batch_id = c(1, 2, 3, 4, 5, 6),
+    species_code = c("PER", "TRF", "ALA", "PER", "LOF", "UNKNOWN"),
+    length_type = c("fork", "fork", "fork", "total", "fork", "fork"),
+    batch_type = c("S/L", "S/L", "S/L", "S/L", "S/L", "S/L"),
+    min_length = c(100, 200, 150, 120, 50, 80),
+    max_length = c(150, 300, 200, 180, 70, 100)
+  )
+  
+  # Individual measurements
+  ind_measure <- data.frame(
+    measure_id = 1:15,
+    batch_id = c(1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6),
+    species_code = c("PER", "PER", "PER", "TRF", "TRF", "ALA", "ALA",
+                     "PER", "PER", "PER", "LOF", "LOF", "UNKNOWN", "UNKNOWN", "UNKNOWN"),
+    size = c(110, 125, 140, 220, 280, 160, 190, 125, 130, 175, 55, 65, 85, 95, 110)
+  )
+  
+  list(
+    species_ref = species_ref,
+    fish_batch = fish_batch,
+    ind_measure = ind_measure
+  )
+}
+
+# Mock conversion vector
+test_conversion_vector <- function() {
+  c(
+    PER = 1.05,   # TL = 0 + 1.05 × FL
+    TRF = 1.04,
+    ALA = 1.09,
+    LOF = 1.0
+  )
+}
+
+# Mock FishBase data
+mock_fishbase_length_length <- function() {
+  data.frame(
+    Species = c("Perca fluviatilis", "Salmo trutta", "Alosa alosa"),
+    Length1 = c("TL", "TL", "TL"),
+    Length2 = c("FL", "FL", "FL"),
+    a = c(0, 0, 0),
+    b = c(1.01, 1.02, 1.03),
+    stringsAsFactors = FALSE
+  )
+}
+

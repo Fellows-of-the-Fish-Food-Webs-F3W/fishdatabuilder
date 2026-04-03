@@ -8,6 +8,7 @@ clean_fish_batch(
   fish_batch = get_fish_batch_aspe(),
   batch_ref = cleaning_ref_batch_type_aspe(),
   species_ref = cleaning_species_ref_aspe(),
+  length_ref = cleaning_ref_length_type_aspe(),
   detail_sampling = cleaning_elementary_sampling()
 )
 }
@@ -21,6 +22,9 @@ By default uses \code{cleaning_ref_batch_type_aspe()} to retrieve cleaned data.}
 \item{species_ref}{A data frame containing cleaned species reference data.
 By default uses \code{cleaning_species_ref_aspe()} to retrieve cleaned data.}
 
+\item{length_ref}{A data frame containing cleaned length reference data.
+By default uses \code{cleaning_ref_length_type_aspe()} to retrieve cleaned data.}
+
 \item{detail_sampling}{A data frame containing cleaned elementary sampling data.
 By default uses \code{cleaning_elementary_sampling()} to retrieve cleaned data.}
 }
@@ -28,5 +32,5 @@ By default uses \code{cleaning_elementary_sampling()} to retrieve cleaned data.}
 A data frame
 }
 \description{
-Clean batch data by renaming columns, and translating them, joining batch names, species code and opration ids.
+Clean batch data by renaming columns, and translating them, joining batch names, species code, type of body length method, and operation ids.
 }

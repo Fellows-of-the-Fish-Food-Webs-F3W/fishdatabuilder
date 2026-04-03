@@ -103,6 +103,21 @@ replacement_species_ref_col <- function() {
   )
 
 }
+
+replacement_length_ref_col <- function() {
+  c(
+    length_type_id = "id",
+    length_type = "libelle"
+  )
+}
+replacement_length_type_label <- function() {
+  c(
+    fork = "Fourche",
+    total = "Totale",
+    estimate_from_weight = "Estimée d'après le poids"
+  )
+}
+
 replacement_batch_ref_col <- function() {
   c(
     batch_type_id = "id",
@@ -123,7 +138,7 @@ replacement_batch_col <- function() {
     estimated_weight = "poids_estime",
     number =  "effectif",
     mep_id = "mep_id",
-    tlo_id = "tlo_id"
+    length_type_id = "tlo_id"
   )
 }
 

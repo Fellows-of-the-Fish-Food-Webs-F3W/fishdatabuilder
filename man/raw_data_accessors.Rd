@@ -21,6 +21,7 @@
 \alias{get_ref_type_batch_aspe}
 \alias{get_fish_batch_aspe}
 \alias{get_individual_measurement_aspe}
+\alias{get_ref_type_length_aspe}
 \title{Get raw data from ASPE database}
 \usage{
 get_raw_station_aspe(file = "station.csv")
@@ -60,6 +61,8 @@ get_ref_type_batch_aspe(file = "ref_type_lot.csv")
 get_fish_batch_aspe(file = "lot_poissons.csv")
 
 get_individual_measurement_aspe(file = "mesure_individuelle.csv")
+
+get_ref_type_length_aspe(file = "ref_type_longueur.csv")
 }
 \arguments{
 \item{file}{Character. Name of the data file in package cache. Each function
@@ -144,6 +147,9 @@ Default file: \code{"lot_poissons.csv"}
 
 For \code{get_individual_measurement_aspe()}: retrieve individual measurement of fishes.
 Default file: \code{"mesure_individuelle.csv"}
+
+For \code{get_ref_type_length_aspe()}: retrieve method of length measurement.
+Default file: \code{"ref_type_longueur.csv"}
 }
 \examples{
 \dontrun{
