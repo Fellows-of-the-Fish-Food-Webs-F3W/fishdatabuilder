@@ -40,6 +40,7 @@ use_test("filtering_species")
 use_test("convert-fork-to-total")
 use_test("remove-impossible-lengths")
 use_test("length-sanitization-integration")
+use_test("sanitize-batch-data")
 
 
 usethis::use_package("mockery", "Suggests")

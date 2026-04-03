@@ -1,3 +1,348 @@
+#' Sanitize and validate fish batch data from ASPE database
+#'
+#' Cleans fish batch data from ASPE standard format by filtering invalid records,
+#' checking required columns, and validating batch types and measurements.
+#' Ensures data quality before individual fish size generation.
+#'
+#' @param fish_batch A data frame containing fish batch data (from `clean_fish_batch()`).
+#'   Expected columns: `batch_id`, `batch_type`, `number`, `species_code`, 
+#'   `min_length`, `max_length`
+#' @param ind_measure A data frame containing individual fish measurements 
+#'   (from `clean_individual_measurement_aspe()`).
+#'   Expected columns: `batch_id`, `size`
+#' @param min_individuals_G Integer. Minimum number of individuals required for
+#'   type "G" batches to generate reliable distributions. Default is 5.
+#' @param min_individuals_SL Integer. Minimum number of measured individuals required
+#'   for type "S/L" batches. Default is 10.
+#' @param verbose Logical. If TRUE, prints messages about filtered records.
+#'
+#' @return A list containing:
+#'   \itemize{
+#'     \item `fish_batch`: Cleaned and validated batch data
+#'     \item `ind_measure`: Filtered measurement data matching cleaned batches
+#'     \item `filtering_log`: Data frame documenting filtered records
+#'     \item `validation_issues`: Data frame with specific validation problems
+#'   }
+#'
+#' @note
+#' The function performs the following validations:
+#' \itemize{
+#'   \item Removes measurements without matching batch IDs
+#'   \item Filters invalid batch types (only G, S/L, I, N are valid)
+#'   \item Removes batches with invalid or missing fish counts (number <= 0 or NA)
+#'   \item For type G: validates min/max are not NA, min_length <= max_length, 
+#'         and sufficient sample size (>= min_individuals_G)
+#'   \item For type S/L: ensures at least min_individuals_SL measured individuals
+#'   \item For types I and N: verifies measured count matches batch count
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # After running cleaning functions
+#' fish_batch_clean <- clean_fish_batch()
+#' ind_measure_clean <- clean_individual_measurement_aspe()
+#' 
+#' # Sanitize batch data
+#' sanitized <- sanitize_batch_data(fish_batch_clean, ind_measure_clean)
+#' 
+#' # Inspect any issues
+#' print(sanitized$validation_issues)
+#' 
+#' # Use with custom thresholds
+#' sanitized_strict <- sanitize_batch_data(
+#'   fish_batch_clean, 
+#'   ind_measure_clean,
+#'   min_individuals_G = 10,
+#'   min_individuals_SL = 20
+#' )
+#' }
+#'
+#' @importFrom dplyr filter select left_join anti_join group_by summarise
+#' @export
+sanitize_batch_data <- function(
+  fish_batch,
+  ind_measure,
+  min_individuals_G = 5,
+  min_individuals_SL = 10,
+  verbose = TRUE
+) {
+  # 1. Input validation --------------------------------------------------------
+  if (!is.data.frame(fish_batch)) {
+    stop("`fish_batch` must be a data frame", call. = FALSE)
+  }
+
+  if (!is.data.frame(ind_measure)) {
+    stop("`ind_measure` must be a data frame", call. = FALSE)
+  }
+
+  # Check required columns in fish_batch
+  required_batch_cols <- c("batch_id", "batch_type", "number", "species_code", 
+    "min_length", "max_length")
+  missing_batch_cols <- setdiff(required_batch_cols, names(fish_batch))
+  if (length(missing_batch_cols) > 0) {
+    stop(
+      "`fish_batch` is missing required columns: ",
+      paste(missing_batch_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  # Check required columns in ind_measure
+  required_measure_cols <- c("batch_id", "size")
+  missing_measure_cols <- setdiff(required_measure_cols, names(ind_measure))
+  if (length(missing_measure_cols) > 0) {
+    stop(
+      "`ind_measure` is missing required columns: ",
+      paste(missing_measure_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  # Initialize tracking objects
+  filtering_log <- data.frame(
+    step = character(),
+    records_removed = integer(),
+    reason = character(),
+    stringsAsFactors = FALSE
+  )
+
+  validation_issues <- data.frame(
+    batch_id = integer(),
+    batch_type = character(),
+    issue = character(),
+    stringsAsFactors = FALSE
+  )
+
+  original_batch_nrow <- nrow(fish_batch)
+  original_measure_nrow <- nrow(ind_measure)
+
+  # 3. Filter measurements to match batches -----------------------------------
+  ind_measure <- ind_measure |>
+    dplyr::filter(batch_id %in% fish_batch$batch_id)
+
+  if (verbose && nrow(ind_measure) < original_measure_nrow) {
+    filtering_log <- rbind(filtering_log, data.frame(
+      step = "measure_filtering",
+      records_removed = original_measure_nrow - nrow(ind_measure),
+      reason = "Removed measurements without matching batch IDs",
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  # 4. Validate batch types ---------------------------------------------------
+  valid_types <- c("G", "S/L", "I", "N")
+  invalid_types <- fish_batch |>
+    dplyr::filter(is.na(batch_type) | !(batch_type %in% valid_types))
+
+  if (nrow(invalid_types) > 0) {
+    if (verbose) {
+      filtering_log <- rbind(filtering_log, data.frame(
+        step = "type_validation",
+        records_removed = nrow(invalid_types),
+        reason = paste("Invalid batch types:", 
+          paste(unique(invalid_types$batch_type), collapse = ", ")),
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    validation_issues <- rbind(validation_issues, data.frame(
+      batch_id = invalid_types$batch_id,
+      batch_type = invalid_types$batch_type,
+      issue = "Invalid batch type",
+      stringsAsFactors = FALSE
+    ))
+
+    fish_batch <- fish_batch |>
+      dplyr::filter(!is.na(batch_type) & batch_type %in% valid_types)
+  }
+
+  # 5. Validate fish count (number) -------------------------------------------
+  invalid_nb <- fish_batch |>
+    dplyr::filter(is.na(number) | number <= 0)
+
+  if (nrow(invalid_nb) > 0) {
+    if (verbose) {
+      filtering_log <- rbind(filtering_log, data.frame(
+        step = "count_validation",
+        records_removed = nrow(invalid_nb),
+        reason = "Invalid or missing fish count (nb <= 0 or NA)",
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    validation_issues <- rbind(validation_issues, data.frame(
+      batch_id = invalid_nb$batch_id,
+      batch_type = invalid_nb$batch_type,
+      issue = "Invalid or missing fish count",
+      stringsAsFactors = FALSE
+    ))
+
+    fish_batch <- fish_batch |>
+      dplyr::filter(!is.na(number) & number > 0)
+  }
+
+  # 6. Type-specific validation -----------------------------------------------
+
+  ## Type G validation
+  batch_G <- fish_batch |> dplyr::filter(batch_type == "G")
+  if (nrow(batch_G) > 0) {
+    # Check for NA min/max
+    na_minmax <- batch_G |>
+      dplyr::filter(is.na(min_length) | is.na(max_length))
+
+    # Check min >= max
+    min_ge_max <- batch_G |>
+      dplyr::filter(!is.na(min_length) & !is.na(max_length) & min_length > max_length)
+
+    # Check insufficient individuals
+    low_n <- batch_G |>
+      dplyr::filter(number < min_individuals_G)
+
+    if (nrow(na_minmax) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = na_minmax$batch_id,
+        batch_type = "G",
+        issue = "NA in min_length or max_length",
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    if (nrow(min_ge_max) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = min_ge_max$batch_id,
+        batch_type = "G",
+        issue = "min_length > max_length",
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    if (nrow(low_n) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = low_n$batch_id,
+        batch_type = "G",
+        issue = paste("Number of individuals <", min_individuals_G),
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    invalid_G_ids <- unique(c(na_minmax$batch_id, min_ge_max$batch_id, low_n$batch_id))
+
+    if (length(invalid_G_ids) > 0) {
+      if (verbose) {
+        filtering_log <- rbind(filtering_log, data.frame(
+          step = "type_G_validation",
+          records_removed = length(invalid_G_ids),
+          reason = "Batches failed type G validation",
+          stringsAsFactors = FALSE
+        ))
+      }
+
+      fish_batch <- fish_batch |>
+        dplyr::filter(!(batch_type == "G" & batch_id %in% invalid_G_ids))
+    }
+  }
+
+  ## Type S/L validation
+  batch_SL <- fish_batch |> dplyr::filter(batch_type == "S/L")
+  if (nrow(batch_SL) > 0) {
+    # Check number of measured individuals
+    measured_counts <- ind_measure |>
+      dplyr::filter(batch_id %in% batch_SL$batch_id) |>
+      dplyr::group_by(batch_id) |>
+      dplyr::summarise(n_measured = dplyr::n(), .groups = "drop")
+
+    low_measured <- batch_SL |>
+      dplyr::left_join(measured_counts, by = "batch_id") |>
+      dplyr::filter(is.na(n_measured) | n_measured < min_individuals_SL)
+
+    if (nrow(low_measured) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = low_measured$batch_id,
+        batch_type = "S/L",
+        issue = paste("Measured individuals <", min_individuals_SL),
+        stringsAsFactors = FALSE
+      ))
+
+      if (verbose) {
+        filtering_log <- rbind(filtering_log, data.frame(
+          step = "type_SL_validation",
+          records_removed = nrow(low_measured),
+          reason = paste("Measured individuals <", min_individuals_SL),
+          stringsAsFactors = FALSE
+        ))
+      }
+
+      fish_batch <- fish_batch |>
+        dplyr::filter(!(batch_type == "S/L" & batch_id %in% low_measured$batch_id))
+    }
+  }
+
+  ## Type I and N validation
+  for (type in c("I", "N")) {
+    batch_type <- fish_batch |> dplyr::filter(batch_type == type)
+    if (nrow(batch_type) > 0) {
+      measured_counts <- ind_measure |>
+        dplyr::filter(batch_id %in% batch_type$batch_id) |>
+        dplyr::group_by(batch_id) |>
+        dplyr::summarise(n_measured = dplyr::n(), .groups = "drop")
+
+      count_mismatch <- batch_type |>
+        dplyr::left_join(measured_counts, by = "batch_id") |>
+        dplyr::filter(n_measured != number | is.na(n_measured))
+
+      if (nrow(count_mismatch) > 0) {
+        validation_issues <- rbind(validation_issues, data.frame(
+          batch_id = count_mismatch$batch_id,
+          batch_type = type,
+          issue = "Measured count does not match batch count",
+          stringsAsFactors = FALSE
+        ))
+
+        if (verbose) {
+          filtering_log <- rbind(filtering_log, data.frame(
+            step = paste0("type_", type, "_validation"),
+            records_removed = nrow(count_mismatch),
+            reason = "Measured count does not match batch count",
+            stringsAsFactors = FALSE
+          ))
+        }
+
+        fish_batch <- fish_batch |>
+          dplyr::filter(!(batch_type == type & batch_id %in% count_mismatch$batch_id))
+      }
+    }
+  }
+
+  # 7. Final filtering of measurements ----------------------------------------
+  ind_measure <- ind_measure |>
+    dplyr::filter(batch_id %in% fish_batch$batch_id)
+
+  # 8. Summary report ---------------------------------------------------------
+  if (verbose) {
+    message("\n=== Batch Data Sanitization Summary ===")
+    message("Original batches: ", original_batch_nrow)
+    message("Valid batches retained: ", nrow(fish_batch))
+    message("Removed: ", original_batch_nrow - nrow(fish_batch), " batches")
+    message("\nOriginal measurements: ", original_measure_nrow)
+    message("Valid measurements retained: ", nrow(ind_measure))
+    message("Removed: ", original_measure_nrow - nrow(ind_measure), " measurements")
+
+    if (nrow(validation_issues) > 0) {
+      message("\nValidation issues by type:")
+      print(table(validation_issues$batch_type, validation_issues$issue))
+    }
+  }
+
+  # 9. Return results ---------------------------------------------------------
+  list(
+    fish_batch = fish_batch,
+    ind_measure = ind_measure,
+    filtering_log = filtering_log,
+    validation_issues = validation_issues
+  )
+}
+
+
 #' size from batch (AFB)
 #' 
 #' @param batch data.frame
