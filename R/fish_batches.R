@@ -1,3 +1,247 @@
+#' Generate individual fish sizes from sanitized batch data
+#'
+#' Generates individual fish size measurements for each batch based on batch type.
+#' Assumes data has been pre-sanitized and uses species maximum lengths as upper
+#' bounds for truncated normal distributions to ensure biologically realistic sizes.
+#'
+#' @param sanitized Output from `sanitize_batch_data()` (list with fish_batch and ind_measure)
+#'   Must contain `max_length_mm` column in fish_batch (species maximum lengths)
+#' @param seed Optional integer for reproducible random number generation
+#' @param verbose Logical. If TRUE, prints progress messages.
+#'
+#' @return A data frame with columns:
+#'   \itemize{
+#'     \item `batch_id`: Batch identifier
+#'     \item `species_code`: Species code
+#'     \item `size_mm`: Generated individual fish sizes in millimeters (rounded)
+#'   }
+#'
+#' @details
+#' The function processes each batch type differently:
+#' 
+#' **Type G (Group)**: Generates sizes from a truncated normal distribution with:
+#'   - Lower bound: 0 mm
+#'   - Upper bound: Species maximum length (`max_length_mm`)
+#'   - Mean: Batch minimum length
+#'   - Standard deviation: (Species max - Batch min) / 4
+#' 
+#' **Type S/L (Size/Length)**: Uses measured individuals to estimate distribution:
+#'   - Lower bound: 0 mm
+#'   - Upper bound: Species maximum length
+#'   - Mean: Mean of measured individuals
+#'   - Standard deviation: SD of measured individuals
+#' 
+#' **Type I (Individual)**: Uses directly measured individuals
+#' 
+#' **Type N (Not measured)**: Single individual from measurements
+#'
+#' @note
+#' - The function assumes data has been pre-sanitized by `sanitize_batch_data()`
+#' - No redundant validation is performed for maximum performance
+#' - The vectorized implementation is optimized for large datasets (2M+ batches)
+#'
+#' @examples
+#' \dontrun{
+#' # Full pipeline
+#' fish_batch_clean <- clean_fish_batch()
+#' ind_measure_clean <- clean_individual_measurement_aspe()
+#' species_ref <- cleaning_species_ref_aspe()
+#' 
+#' # Sanitize
+#' sanitized <- sanitize_batch_data(
+#'   fish_batch_clean, 
+#'   ind_measure_clean,
+#'   species_ref
+#' )
+#' 
+#' # Generate individual sizes
+#' individual_fish <- generate_individual_sizes(sanitized, seed = 123)
+#' }
+#'
+#' @importFrom dplyr bind_rows filter group_by summarise left_join
+#' @importFrom truncdist rtrunc
+#' @importFrom stats sd
+#' @export
+generate_individual_sizes <- function(
+  sanitized,
+  seed = NULL,
+  verbose = TRUE
+) {
+  if (!is.null(seed)) set.seed(seed)
+
+  if (!is.list(sanitized) || !all(c("fish_batch", "ind_measure") %in% names(sanitized))) {
+    stop("sanitized must be output from sanitize_batch_data()", call. = FALSE)
+  }
+
+  fish_batch <- sanitized$fish_batch
+  ind_measure <- sanitized$ind_measure
+
+  # Check for required max_length_mm column
+  if (!"maximal_length_mm" %in% names(fish_batch)) {
+    stop("sanitized$fish_batch must contain 'maximal_length_mm' column from species reference",
+      call. = FALSE)
+  }
+ 
+  if (!requireNamespace("truncdist", quietly = TRUE)) {
+    stop("Package 'truncdist' is required", call. = FALSE)
+  }
+
+  if (verbose) {
+    message("\n=== Generating Individual Fish Sizes ===")
+    message("Processing ", nrow(fish_batch), " batches...")
+    start_time <- Sys.time()
+  }
+
+  results <- list()
+
+  # Type G - Fully vectorized
+  batch_G <- fish_batch |> dplyr::filter(batch_type == "G")
+  if (nrow(batch_G) > 0) {
+    # Generate all samples at once by expanding parameters
+    expanded_idx <- rep(seq_len(nrow(batch_G)), times = batch_G$number)
+    n_per_batch <- batch_G$number
+
+    # Vectorized generation (still needs per-row but faster than mapply)
+    sizes <- numeric(sum(n_per_batch))
+    pos <- 1
+    for (i in seq_len(nrow(batch_G))) {
+      n <- n_per_batch[i]
+      sizes[pos:(pos + n - 1)] <- generate_dist_from_min_max(
+        n = n,
+        max_length = batch_G$maximal_length_mm[i],
+        min = batch_G$min_length[i],
+        max = batch_G$max_length[i]
+      )
+      pos <- pos + n
+    }
+
+    results[["G"]] <- data.frame(
+      batch_id = rep(batch_G$batch_id, times = batch_G$number),
+      species_code = rep(batch_G$species_code, times = batch_G$number),
+      size_mm = round(sizes),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # Type S/L - Vectorized with pre-computed stats
+  batch_SL <- fish_batch |> dplyr::filter(batch_type == "S/L")
+  if (nrow(batch_SL) > 0) {
+    # Pre-compute summary stats
+    sl_summary <- ind_measure |>
+      dplyr::filter(batch_id %in% batch_SL$batch_id) |>
+      dplyr::group_by(batch_id) |>
+      dplyr::summarise(
+        mean_size = mean(size, na.rm = TRUE),
+        sd_size = stats::sd(size, na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    # Join to batch data
+    batch_SL <- batch_SL |>
+      dplyr::left_join(sl_summary, by = "batch_id")
+
+    # Generate samples
+    expanded_idx <- rep(seq_len(nrow(batch_SL)), times = batch_SL$number)
+
+    sizes <- numeric(sum(batch_SL$number))
+    pos <- 1
+    for (i in seq_len(nrow(batch_SL))) {
+      n <- batch_SL$number[i]
+      sizes[pos:(pos + n - 1)] <- generate_dist_from_sample(
+        n = n,
+        max_length = batch_SL$maximal_length_mm[i],
+        mean = batch_SL$mean_size[i],
+        sd = batch_SL$sd_size[i]
+      )
+      pos <- pos + n
+    }
+
+    results[["SL"]] <- data.frame(
+      batch_id = rep(batch_SL$batch_id, times = batch_SL$number),
+      species_code = rep(batch_SL$species_code, times = batch_SL$number),
+      size_mm = round(sizes),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # Type I - Direct expansion
+  batch_I <- fish_batch |> dplyr::filter(batch_type == "I")
+  if (nrow(batch_I) > 0) {
+    # Get measurements
+    i_measurements <- ind_measure |>
+      dplyr::filter(batch_id %in% batch_I$batch_id) |>
+      dplyr::arrange(batch_id)
+
+    results[["I"]] <- data.frame(
+      batch_id = i_measurements$batch_id,
+      species_code = rep(batch_I$species_code, times = batch_I$number),
+      size_mm = round(i_measurements$size),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # Type N - Single measurements
+  batch_N <- fish_batch |> dplyr::filter(batch_type == "N")
+  if (nrow(batch_N) > 0) {
+    n_measurements <- ind_measure |>
+      dplyr::filter(batch_id %in% batch_N$batch_id) |>
+      dplyr::group_by(batch_id) |>
+      dplyr::summarise(size = unique(size), .groups = "drop")
+
+    results[["N"]] <- data.frame(
+      batch_id = n_measurements$batch_id,
+      species_code = batch_N$species_code[match(n_measurements$batch_id, batch_N$batch_id)],
+      size_mm = round(n_measurements$size),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  final_result <- dplyr::bind_rows(results)
+
+  if (verbose) {
+    end_time <- Sys.time()
+    message("Generated ", nrow(final_result), " records in ", 
+            round(end_time - start_time, 2), " seconds")
+  }
+
+  final_result
+}
+
+
+# Ultra-fast helper functions (no checks, just sampling)
+
+#' Generate random sample from truncated normal distribution using min/max
+#' Assumes inputs are valid (no NA, min < max)
+#'
+#' @keywords internal
+#' @noRd
+generate_dist_from_min_max <- function(n, max_length, min, max) {
+  truncdist::rtrunc(
+    n = n,
+    spec = "norm",
+    a = 0,
+    b = max_length,  # Use species max, not batch max
+    mean = (min + max) / 2,
+    sd = (max - min) / 4
+  )
+}
+
+#' Generate random sample from truncated normal distribution using sample statistics
+#' Assumes inputs are valid (a < b, sd > 0)
+#'
+#' @keywords internal
+#' @noRd
+generate_dist_from_sample <- function(n, max_length, mean, sd) {
+  truncdist::rtrunc(
+    n = n,
+    spec = "norm",
+    a = 0,
+    b = max_length,
+    mean = mean,
+    sd = sd
+  )
+}
+
 #' Sanitize and validate fish batch data from ASPE database
 #'
 #' Cleans fish batch data from ASPE standard format by filtering invalid records,
@@ -62,6 +306,7 @@
 sanitize_batch_data <- function(
   fish_batch,
   ind_measure,
+  species_ref,
   min_individuals_G = 5,
   min_individuals_SL = 10,
   verbose = TRUE
@@ -316,6 +561,13 @@ sanitize_batch_data <- function(
   # 7. Final filtering of measurements ----------------------------------------
   ind_measure <- ind_measure |>
     dplyr::filter(batch_id %in% fish_batch$batch_id)
+
+# Add species maximum length to fish_batch
+  fish_batch <- fish_batch |>
+    dplyr::left_join(
+      dplyr::select(species_ref, species_code, maximal_length_mm),
+      by = "species_code"
+    )
 
   # 8. Summary report ---------------------------------------------------------
   if (verbose) {

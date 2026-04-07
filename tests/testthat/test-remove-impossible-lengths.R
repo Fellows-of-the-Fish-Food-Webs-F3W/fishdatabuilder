@@ -95,7 +95,7 @@ test_that("remove_impossible_lengths identifies batch-level outliers", {
   test_data$fish_batch$min_length[2] <- 1200  # TRF max 1000
   test_data$fish_batch <- test_data$fish_batch |>
     rbind(
-      tibble(
+      tibble::tibble(
         batch_id = 9:10,
         species_code = c("PER", "TRF"),
         length_type = "total",

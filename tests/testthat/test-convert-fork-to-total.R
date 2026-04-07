@@ -18,8 +18,8 @@ test_that("convert_fork_to_total prioritizes manual over FishBase when manual_pr
     verbose = FALSE
   )
   expect_equal(
-    conversion_coeffs$coeffs |> arrange(species_code),
-    tibble(
+    conversion_coeffs$coeffs |> dplyr::arrange(species_code),
+    tibble::tibble(
       species_code = c("ALA", "LOF", "PER", "TRF"),
       b = c(1.03, 1.00, 1.01, 1.02),
       a = 0,
@@ -86,8 +86,8 @@ test_that("convert_fork_to_total prioritizes FishBase over manual when manual_pr
     verbose = FALSE
   )
   expect_equal(
-    conversion_coeffs$coeffs |> arrange(species_code),
-    tibble(
+    conversion_coeffs$coeffs |> dplyr::arrange(species_code),
+    tibble::tibble(
       species_code = c("ALA", "LOF", "PER", "TRF"),
       a = 0,
       b = c(1.09, 1.00, 1.05, 1.04),
@@ -179,21 +179,6 @@ test_that("convert_fork_to_total handles missing species gracefully", {
 
 test_that("convert_fork_to_total warns about missing conversion coefficients", {
   test_data <- create_test_length_data()
-  
-  # Use empty conversion vector
-  conversion_coeffs <- build_conversion_coefficients(
-    species_fork = species_fork,
-      conversion_vector = c(),  # Empty manual vector
-      fishbase_length_length = tibble(
-        Species = c("pikachuuuuuu"),
-        Length1 = c("TL"),
-        Length2 = c("FL"),
-        a = c(0.5),   # 0.5 cm intercept
-        b = c(1.05)),
-    convert_intercept_cm2mm = TRUE,
-    manual_priority = TRUE,
-    verbose = FALSE
-  )
 
   expect_warning(
     result <- convert_fork_to_total(
@@ -201,7 +186,7 @@ test_that("convert_fork_to_total warns about missing conversion coefficients", {
       ind_measure = test_data$ind_measure,
       species_ref = test_data$species_ref,
       conversion_vector = c(),  # Empty manual vector
-      fishbase_length_length = tibble(
+      fishbase_length_length = tibble::tibble(
         Species = c("pikachuuuuuu"),
         Length1 = c("TL"),
         Length2 = c("FL"),
@@ -212,11 +197,12 @@ test_that("convert_fork_to_total warns about missing conversion coefficients", {
     ),
     "No conversion coefficients for species: PER, TRF, ALA, LOF, UNKNOWN"
   )
-  expect_equal(result$ind_measure |> select(-source) |> arrange(measure_id),
+  expect_equal(result$ind_measure |> select(-source) |> dplyr::arrange(measure_id),
     test_data$ind_measure)
-  expect_equal(result$fish_batch |> select(-source) |> arrange(batch_id),
+  expect_equal(result$fish_batch |> select(-source) |> dplyr::arrange(batch_id),
     test_data$fish_batch)
 })
+
 test_that("convert_fork_to_total handles intercept conversion correctly", {
   test_data <- create_test_length_data()
   
@@ -241,13 +227,15 @@ test_that("convert_fork_to_total handles intercept conversion correctly", {
     ) |>
     expect_warning("Some batch maximum lengths decreased after conversion") |>
     expect_warning("Some individual measurements decreased after conversion")
-    result_cm <- suppressWarnings(convert_fork_to_total(
+    result_cm <- suppressWarnings(
+    convert_fork_to_total(
       fish_batch = test_data$fish_batch |> dplyr::filter(species_code == "PER"),
       ind_measure = test_data$ind_measure |> dplyr::filter(species_code == "PER"),
       species_ref = test_data$species_ref,
       conversion_vector = c(),
       fishbase_length_length = fb_with_intercept,
-      convert_intercept_cm2mm = TRUE
+      convert_intercept_cm2mm = TRUE,
+      verbose = FALSE
   ))
   # a = 0.5 cm = 5 mm, b = 0.95
   # TL = 5 + 0.95 * FL

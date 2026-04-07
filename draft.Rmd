@@ -26,8 +26,6 @@ test()
 build_vignettes()
 ```
 
-
-
 ```r
 #| id: proto-function
 list_optional_files()
@@ -148,6 +146,7 @@ sanitized_length <- remove_impossible_lengths(
 sanitized <- sanitize_batch_data(
   fish_batch = sanitized_length$fish_batch,
   ind_measure = sanitized_length$ind_measure,
+  species_ref = species,
   min_individuals_G = 2,
   min_individuals_SL = 6
 )
@@ -157,143 +156,16 @@ sanitized <- sanitize_batch_data(
 ```{r}
 sanitized$filtering_log
 sanitized$validation_issues
-```
-
-
-
-```r
-#| id: sp-na-max-size
-check_size_ind_measure |>
-  filter(size > (maximal_length_mm + maximal_length_mm * 10/100))
-```
-
-```r
-#| id: sp-na-max-size
-check_size_ind_measure |>
-  filter(is.na(maximal_length_mm)) |>
-  distinct(species_code, latin_name)
-n_na_max_length <- check_size_ind_measure |>
-  filter(is.na(maximal_length_mm)) |>
-  nrow()
-n_na_max_length / nrow(check_size_ind_measure)
-
-```
-
-
-
-
-```r
-## TODO: add warning in future check
-check_size_ind_measure |>
-  filter(is.na(maximal_length_mm)) |>
-  distinct(species_code, latin_name)
-check_size_fish_batch |>
-  filter(is.na(maximal_length_mm)) |>
-  distinct(species_code, latin_name)
-
-check_size_ind_measure %>%
-  filter(size > maximal_length_mm) %>%
-  arrange(desc(size - maximal_length_mm))
-check_size_fish_batch %>%
-  filter(max_length > maximal_length_mm) %>%
-  arrange(desc(max_length - maximal_length_mm))
-
-
-
+sanitized$fish_batch |>
+  filter(min_length == max_length) |>
+  select(batch_type, min_length, max_length, number)
+sanitized$fish_batch |>
+  filter(batch_type == "G") |>
+  filter(is.na(min_length) | is.na(max_length))
 ```
 
 ## Generate fish size from batch
 
-
-```r
-options(mc.cores = 10)
-operation_id_sample <- sample(op$operation_id, 1000)
-batch_test <- fish_batch %>%
-  filter(operation_id %in% operation_id_sample) %>%
-  select(-c(
-    weight, estimated_weight, mep_id, tlo_id,
-    prelevement_id, operation_id
-  ))
-measure_test <- ind_measure %>%
-  filter(operation_id %in% operation_id_sample) %>%
-  select(-c(site_id:prelevement_id, measure_id))
-system.time({
-test <- get_size_from_batch(
-      batch = batch_test,
-      id_var = batch_id,
-      batch_type_var = batch_type,
-      nb_var = number,
-      min_var = min_length,
-      max_var = max_length,
-      species = species_code,
-      measure = measure_test,
-      measure_id_var = batch_id,
-      size_var = size)
-})
-```
-
-```r
-#| eval: FALSE
-# 50min to run
-options(mc.cores = 10)
-fish_ind_size <- get_size_from_batch(
-  batch = filtered_sampling$fish_batch |>
-    select(-c(weight, estimated_weight, mep_id, tlo_id,
-      prelevement_id, operation_id
-    )),
-  id_var = batch_id,
-  batch_type_var = batch_type,
-  nb_var = number,
-  min_var = min_length,
-  max_var = max_length,
-  species = species_code,
-  measure = filtered_sampling$ind_measure %>%
-    select(-c(site_id:prelevement_id, measure_id)),
-  measure_id_var = batch_id,
-  size_var = size)
-save(fish_ind_size, file = "~/Téléchargements/fish_ind_size.rda")
-````
-
-```r
-load("~/Téléchargements/fish_ind_size.rda")
-fish_ind_size %>%
-  unnest(size_mm)
-```
-
-## Other things
-
-```r
-#| id: species
-sp <- cleaning_species_ref_aspe() |> as_tibble()
-```
-
-```{r elementary-sampling}
-
-ele_sampling <- cleaning_elementary_sampling() |> as_tibble()
-ele_sampling %>%
-  filter(is.na(passage_number))
-```
-
-
-```r
-op_description <- clean_description_operation_aspe() |> as_tibble()
-```
-
-
 ```{r}
-# pak::pkg_install("PascalIrz/aspe")
-library(aspe)
-data(data_dictionnaire)
-view(data_dictionnaire)
-length_fq <- rfishbase::length_freq("Salmo trutta")
-ll_TRF <- rfishbase::length_length("Salmo trutta")
-ll_TRF |>
-  filter(Length1 == "FL", Length2 == "TL")
-ll_ALA <- rfishbase::length_length("Alosa alosa")
-ll_ALA |>
-  filter(Length1 == "FL", Length2 == "TL")
-90*.88
-
-
+ti <- generate_individual_sizes_vectorized(sanitized, verbose = TRUE)
 ```
-

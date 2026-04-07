@@ -7,6 +7,7 @@
 sanitize_batch_data(
   fish_batch,
   ind_measure,
+  species_ref,
   min_individuals_G = 5,
   min_individuals_SL = 10,
   verbose = TRUE

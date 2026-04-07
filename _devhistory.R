@@ -41,6 +41,7 @@ use_test("convert-fork-to-total")
 use_test("remove-impossible-lengths")
 use_test("length-sanitization-integration")
 use_test("sanitize-batch-data")
+use_test("generate-individual-size")
 
 
 usethis::use_package("mockery", "Suggests")
@@ -48,4 +49,5 @@ usethis::use_package("covr", "Suggests")
 usethis::use_package("truncdist", "Suggests")
 
 usethis::use_vignette("getting_started.qmd", "Getting started")
-
+usethis::use_build_ignore("vignettes/*_files")
+usethis::use_git_ignore("*_files", "vignettes")

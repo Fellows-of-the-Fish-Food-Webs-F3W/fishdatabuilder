@@ -1,7 +1,15 @@
-# tests/testthat/test-sanitize-batch-data.R
 
 # Helper function to create test data
 create_test_batch_data <- function() {
+
+  # Species reference
+  species_ref <- data.frame(
+    species_code = c("PER", "TRF", "ALA", "LOF", "UNKNOWN"),
+    latin_name = c("Perca fluviatilis", "Salmo trutta", "Alosa alosa", 
+                   "Barbatula barbatula", "Unknownus species"),
+    maximal_length_mm = c(600, 1000, 600, 120, 500)
+  )
+
   fish_batch <- data.frame(
     batch_id = 1:10,
     batch_type = c("G", "S/L", "I", "N", "G", "S/L", "I", "N", "G", "INVALID"),
@@ -18,7 +26,9 @@ create_test_batch_data <- function() {
     stringsAsFactors = FALSE
   )
   
-  list(fish_batch = fish_batch, ind_measure = ind_measure)
+  list(species_ref = species_ref,
+    fish_batch = fish_batch,
+    ind_measure = ind_measure)
 }
 
 test_that("sanitize_batch_data validates inputs", {
@@ -61,6 +71,7 @@ test_that("sanitize_batch_data filters measurements without matching batches", {
   result <- sanitize_batch_data(
     fish_batch = test_data$fish_batch,
     ind_measure = test_data$ind_measure,
+    species_ref = test_data$species_ref,
     verbose = FALSE
   )
   
@@ -75,6 +86,7 @@ test_that("sanitize_batch_data removes invalid batch types", {
   result <- sanitize_batch_data(
     fish_batch = test_data$fish_batch,
     ind_measure = test_data$ind_measure,
+    species_ref = test_data$species_ref,
     verbose = FALSE
   )
   
@@ -96,6 +108,7 @@ test_that("sanitize_batch_data removes batches with invalid fish count", {
   result <- sanitize_batch_data(
     fish_batch = test_data$fish_batch,
     ind_measure = test_data$ind_measure,
+    species_ref = test_data$species_ref,
     verbose = FALSE
   )
   
@@ -128,17 +141,18 @@ test_that("sanitize_batch_data validates type G batches correctly", {
     size = c(110, 125, 140),
     stringsAsFactors = FALSE
   )
-  
+
   result <- sanitize_batch_data(
     fish_batch = fish_batch_G,
     ind_measure = ind_measure_G,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     min_individuals_G = 5,
     verbose = FALSE
   )
-  
+
   # Batch 2 (NA min/max) should be removed
   expect_false(2 %in% result$fish_batch$batch_id)
-  
+
   # Batch 3 (min > max) should be removed
   expect_false(3 %in% result$fish_batch$batch_id)
   
@@ -178,6 +192,9 @@ test_that("sanitize_batch_data validates type S/L batches correctly", {
   result <- sanitize_batch_data(
     fish_batch = fish_batch_SL,
     ind_measure = ind_measure_SL,
+    species_ref = data.frame(
+      species_code = c("PER", "TRF"),
+      maximal_length_mm = c(300, 600)),
     min_individuals_SL = 10,
     verbose = FALSE
   )
@@ -213,6 +230,9 @@ test_that("sanitize_batch_data validates type I and N batches correctly", {
   result_I <- sanitize_batch_data(
     fish_batch = fish_batch_I,
     ind_measure = ind_measure_I,
+    species_ref = data.frame(
+      species_code = c("PER", "TRF"),
+      maximal_length_mm = c(300, 600)),
     verbose = FALSE
   )
   
@@ -240,6 +260,9 @@ test_that("sanitize_batch_data validates type I and N batches correctly", {
   result_N <- sanitize_batch_data(
     fish_batch = fish_batch_N,
     ind_measure = ind_measure_N,
+    species_ref = data.frame(
+      species_code = c("PER", "TRF"),
+      maximal_length_mm = c(300, 600)),
     verbose = FALSE
   )
   
@@ -254,6 +277,7 @@ test_that("sanitize_batch_data returns correct structure", {
   result <- sanitize_batch_data(
     fish_batch = test_data$fish_batch,
     ind_measure = test_data$ind_measure,
+    species_ref = test_data$species_ref,
     verbose = FALSE
   )
   
@@ -289,6 +313,7 @@ test_that("sanitize_batch_data respects min_individuals_G parameter", {
   result_strict <- sanitize_batch_data(
     fish_batch = fish_batch_G,
     ind_measure = ind_measure_G,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     min_individuals_G = 10,
     verbose = FALSE
   )
@@ -298,6 +323,7 @@ test_that("sanitize_batch_data respects min_individuals_G parameter", {
   result_lenient <- sanitize_batch_data(
     fish_batch = fish_batch_G,
     ind_measure = ind_measure_G,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     min_individuals_G = 2,
     verbose = FALSE
   )
@@ -326,6 +352,7 @@ test_that("sanitize_batch_data respects min_individuals_SL parameter", {
   result_strict <- sanitize_batch_data(
     fish_batch = fish_batch_SL,
     ind_measure = ind_measure_SL,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     min_individuals_SL = 10,
     verbose = FALSE
   )
@@ -335,6 +362,7 @@ test_that("sanitize_batch_data respects min_individuals_SL parameter", {
   result_lenient <- sanitize_batch_data(
     fish_batch = fish_batch_SL,
     ind_measure = ind_measure_SL,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     min_individuals_SL = 5,
     verbose = FALSE
   )
@@ -349,6 +377,7 @@ test_that("sanitize_batch_data handles verbose output", {
     result <- sanitize_batch_data(
       fish_batch = test_data$fish_batch,
       ind_measure = test_data$ind_measure,
+      species_ref = test_data$species_ref,
       verbose = TRUE,
       min_individuals_SL = 10,
       min_individuals_G = 5
@@ -361,6 +390,7 @@ test_that("sanitize_batch_data handles verbose output", {
     result <- sanitize_batch_data(
       fish_batch = test_data$fish_batch,
       ind_measure = test_data$ind_measure,
+      species_ref = test_data$species_ref,
       verbose = FALSE
     )
   )
@@ -387,6 +417,7 @@ test_that("sanitize_batch_data handles edge cases", {
   result <- sanitize_batch_data(
     fish_batch = empty_fish_batch,
     ind_measure = empty_ind_measure,
+    species_ref = data.frame(species_code = character(), maximal_length_mm = numeric()),
     verbose = FALSE
   )
   
@@ -415,6 +446,7 @@ test_that("sanitize_batch_data handles edge cases", {
   result_na <- sanitize_batch_data(
     fish_batch = fish_batch_na,
     ind_measure = ind_measure_na,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = NA),
     verbose = FALSE
   )
   
@@ -443,6 +475,7 @@ test_that("sanitize_batch_data correctly handles min_length == max_length", {
   result <- sanitize_batch_data(
     fish_batch = fish_batch_equal,
     ind_measure = ind_measure_equal,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
     verbose = FALSE
   )
   
