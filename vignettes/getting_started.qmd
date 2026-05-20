@@ -70,18 +70,11 @@ op_description <- clean_description_operation_aspe()
 head(op_description)
 
 # Cleaned elementary sampling
-elementary_sampling <- cleaning_elementary_sampling(
-  sampling = get_elementary_sampling_aspe(),
-  ref_sampling = get_ref_elementary_sampling_aspe(),
-  ref_passage = get_ref_passage_aspe()
-)
+elementary_sampling <- cleaning_elementary_sampling()
 head(elementary_sampling)
 
 # Cleaning point group
-point_group <- cleaning_point_group(
-  point_group = get_point_group_aspe(),
-  ref_point_group = get_ref_point_group_aspe()
-)
+point_group <- cleaning_point_group()
 head(point_group)
 
 # Cleaned fish batches (lot_poisson in french)
@@ -117,45 +110,70 @@ head(filtered_sampling$fish_batch)
 head(filtered_sampling$ind_measure)
 ```
 
-## Generate fish individual size
+## Sanitize species code
 
-We sample sampling operations because it takes almost 50 minutes using parallelisation.
 
-```r
-operation_id_sample <- sample(op$operation_id, 100)
-batch_test <- fish_batch |>
-  filter(operation_id %in% operation_id_sample) |>
-  select(-c(
-    weight, estimated_weight, mep_id, tlo_id,
-    prelevement_id, operation_id
-  ))
-measure_test <- ind_measure |>
-  filter(operation_id %in% operation_id_sample) |>
-  select(-c(site_id:prelevement_id, measure_id))
+```{r}
+filtered_sampling[c("fish_batch", "ind_measure")] <-
+  filtered_sampling[c("fish_batch", "ind_measure")] |>
+    purrr::map(\(x) sanitize_species_code(
+      data = x,
+      species_var = species_code,
+      #species_to_remove = species_code_to_remove(),
+      #species_to_replace = species_code_to_replace(),
+      species_ref = species
+    ))
 ```
 
-Generate the individual body size from batches and individual measurements.
+## Sanitize fish size measurements
 
-```r
-options(mc.cores = 1)
-system.time({
-test <- get_size_from_batch(
-      batch = batch_test,
-      id_var = batch_id,
-      batch_type_var = batch_type,
-      nb_var = number,
-      min_var = min_length,
-      max_var = max_length,
-      species = species_code,
-      measure = measure_test,
-      measure_id_var = batch_id,
-      size_var = size)
-})
-
-test <- test |>
-  unnest(cols = size_mm)
-nrow(test)
-test |>
-  head
+```{r}
+nb_ind_fork <- filtered_sampling$fish_batch |>
+  filter(length_type == "fork") %>%
+  summarise(n = sum(number)) |> pull(n)
+nb_ind_fork / sum(filtered_sampling$fish_batch$number)
 ```
 
+```{r}
+#| id: length-conversion
+species_fork_length <- filtered_sampling$fish_batch |>
+    filter(length_type == "fork") |>
+    distinct(species_code) |>
+    left_join(species,
+      by = join_by(species_code)
+    )
+ll <- rfishbase::length_length(species_list = species_fork_length$latin_name)
+
+sanitized_length_type <- convert_fork_to_total(
+  fish_batch = filtered_sampling$fish_batch,
+  ind_measure = filtered_sampling$ind_measure,
+  species_ref = cleaning_species_ref_aspe(),
+  fishbase_length_length = ll,
+  conversion_vector = coefficients_fork2total(),
+  convert_intercept_cm2mm = TRUE,
+  manual_priority = FALSE,
+  verbose = TRUE
+)
+sanitized_length <- remove_impossible_lengths(
+  ind_measure = sanitized_length_type$ind_measure,
+  fish_batch = sanitized_length_type$fish_batch,
+  species_ref = species,
+  remove_outliers = TRUE
+)
+```
+
+```{r}
+sanitized <- sanitize_batch_data(
+  fish_batch = sanitized_length$fish_batch,
+  ind_measure = sanitized_length$ind_measure,
+  species_ref = species,
+  min_individuals_G = 2,
+  min_individuals_SL = 6
+)
+```
+
+## Generate fish size from batch
+
+```{r}
+ti <- generate_individual_sizes_vectorized(sanitized, verbose = TRUE)
+```
