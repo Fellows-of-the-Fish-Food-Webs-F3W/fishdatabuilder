@@ -5,7 +5,7 @@
 #' bounds for truncated normal distributions to ensure biologically realistic sizes.
 #'
 #' @param sanitized Output from `sanitize_batch_data()` (list with fish_batch and ind_measure)
-#'   Must contain `max_length_mm` column in fish_batch (species maximum lengths)
+#'   Must contain `maximal_length_mm` column in fish_batch (species maximum lengths)
 #' @param seed Optional integer for reproducible random number generation
 #' @param verbose Logical. If TRUE, prints progress messages.
 #'
@@ -13,8 +13,10 @@
 #'   \itemize{
 #'     \item `batch_id`: Batch identifier
 #'     \item `species_code`: Species code
-#'     \item `size_mm`: Generated individual fish sizes in millimeters (rounded)
+#'     \item `size_mm`: Individual fish sizes in millimeters (rounded)
+#'     \item `measured`: Logical flag indicating if the fish was directly measured
 #'   }
+#'
 #'
 #' @details
 #' The function processes each batch type differently:
@@ -34,6 +36,10 @@
 #' **Type I (Individual)**: Uses directly measured individuals
 #' 
 #' **Type N (Not measured)**: Single individual from measurements
+#'
+#' The function adds a `measured` column to distinguish between:
+#' - **TRUE**: Directly measured individuals (from original data)
+#' - **FALSE**: Statistically imputed individuals (generated from distributions)
 #'
 #' @note
 #' - The function assumes data has been pre-sanitized by `sanitize_batch_data()`
@@ -97,28 +103,49 @@ generate_individual_sizes <- function(
   # Type G - Fully vectorized
   batch_G <- fish_batch |> dplyr::filter(batch_type == "G")
   if (nrow(batch_G) > 0) {
-    # Generate all samples at once by expanding parameters
-    expanded_idx <- rep(seq_len(nrow(batch_G)), times = batch_G$number)
     n_per_batch <- batch_G$number
-
+    total_n <- sum(n_per_batch)
+ 
+    # Pre-allocate all vectors
+    sizes <- numeric(total_n)
+    measured <- logical(total_n)
+    batch_ids <- integer(total_n)
+    species_codes <- character(total_n)
     # Vectorized generation (still needs per-row but faster than mapply)
-    sizes <- numeric(sum(n_per_batch))
     pos <- 1
     for (i in seq_len(nrow(batch_G))) {
-      n <- n_per_batch[i]
-      sizes[pos:(pos + n - 1)] <- generate_dist_from_min_max(
-        n = n,
-        max_length = batch_G$maximal_length_mm[i],
-        min = batch_G$min_length[i],
-        max = batch_G$max_length[i]
+      n_total <- n_per_batch[i]
+      n_imputed <- n_total - 2
+
+      idx_range <- pos:(pos + n_total - 1)
+
+      # Assign batch metadata (same for all fish in this batch)
+      batch_ids[idx_range] <- batch_G$batch_id[i]
+      species_codes[idx_range] <- batch_G$species_code[i]
+
+      # Fill measured flag (direct assignment without rep)
+      measured[idx_range] <- FALSE  # Default to FALSE for all
+      measured[pos:(pos + 1)] <- TRUE          # First and second are min and max (measured)
+      
+      # Fill sizes
+      sizes[idx_range] <- c(
+        batch_G$min_length[i], # Min (measured)
+        batch_G$max_length[i], # Max (measured)
+        generate_dist_from_min_max( # Imputed (non-measured)
+          n = n_imputed,
+          max_length = batch_G$maximal_length_mm[i],
+          min = batch_G$min_length[i],
+          max = batch_G$max_length[i]
+        )
       )
-      pos <- pos + n
+      pos <- pos + n_total
     }
 
     results[["G"]] <- data.frame(
-      batch_id = rep(batch_G$batch_id, times = batch_G$number),
-      species_code = rep(batch_G$species_code, times = batch_G$number),
+      batch_id = batch_ids,
+      species_code = species_codes,
       size_mm = round(sizes),
+      measured = measured,
       stringsAsFactors = FALSE
     )
   }
@@ -133,6 +160,8 @@ generate_individual_sizes <- function(
       dplyr::summarise(
         mean_size = mean(size, na.rm = TRUE),
         sd_size = stats::sd(size, na.rm = TRUE),
+        measured_sizes = list(size),
+        n_measured = dplyr::n(),
         .groups = "drop"
       )
 
@@ -140,26 +169,50 @@ generate_individual_sizes <- function(
     batch_SL <- batch_SL |>
       dplyr::left_join(sl_summary, by = "batch_id")
 
-    # Generate samples
-    expanded_idx <- rep(seq_len(nrow(batch_SL)), times = batch_SL$number)
+    n_per_batch <- batch_SL$number
+    total_n <- sum(n_per_batch)
 
-    sizes <- numeric(sum(batch_SL$number))
+    # Pre-allocate vectors
+    batch_ids <- integer(total_n)
+    species_codes <- character(total_n)
+    sizes <- numeric(total_n)
+    measured <- logical(total_n)
+
+    # Loop over batches
     pos <- 1
     for (i in seq_len(nrow(batch_SL))) {
-      n <- batch_SL$number[i]
-      sizes[pos:(pos + n - 1)] <- generate_dist_from_sample(
-        n = n,
+      n_total <- n_per_batch[i]
+      n_measured <- batch_SL$n_measured[i]
+      idx_range <- pos:(pos + n_total - 1)
+      
+      # Fill batch metadata
+      batch_ids[idx_range] <- batch_SL$batch_id[i]
+      species_codes[idx_range] <- batch_SL$species_code[i]
+      
+      # Fill measured flag
+      measured[idx_range] <- FALSE  # Default to FALSE
+      measured[pos:(pos + n_measured - 1)] <- TRUE  # First n_measured are TRUE
+
+
+      n_imputed <- n_total - n_measured
+
+      sizes[pos:(pos + n_total - 1)] <- c(
+        batch_SL$measured_sizes[[i]],
+        generate_dist_from_sample(
+        n = n_imputed,
         max_length = batch_SL$maximal_length_mm[i],
         mean = batch_SL$mean_size[i],
         sd = batch_SL$sd_size[i]
+        )
       )
-      pos <- pos + n
+      pos <- pos + n_total
     }
 
     results[["SL"]] <- data.frame(
-      batch_id = rep(batch_SL$batch_id, times = batch_SL$number),
-      species_code = rep(batch_SL$species_code, times = batch_SL$number),
+      batch_id = batch_ids,
+      species_code = species_codes,
       size_mm = round(sizes),
+      measured = measured,
       stringsAsFactors = FALSE
     )
   }
@@ -176,6 +229,7 @@ generate_individual_sizes <- function(
       batch_id = i_measurements$batch_id,
       species_code = rep(batch_I$species_code, times = batch_I$number),
       size_mm = round(i_measurements$size),
+      measured = TRUE,
       stringsAsFactors = FALSE
     )
   }
@@ -192,6 +246,7 @@ generate_individual_sizes <- function(
       batch_id = n_measurements$batch_id,
       species_code = batch_N$species_code[match(n_measurements$batch_id, batch_N$batch_id)],
       size_mm = round(n_measurements$size),
+      measured = TRUE,
       stringsAsFactors = FALSE
     )
   }
@@ -200,8 +255,13 @@ generate_individual_sizes <- function(
 
   if (verbose) {
     end_time <- Sys.time()
-    message("Generated ", nrow(final_result), " records in ", 
-            round(end_time - start_time, 2), " seconds")
+    n_measured <- sum(final_result$measured)
+    n_imputed <- sum(!final_result$measured)
+    message("\n=== Generation Summary ===")
+    message("Generated ", nrow(final_result), " individual size records")
+    message("  - Measured: ", n_measured, " (", round(100 * n_measured / nrow(final_result), 1), "%)")
+    message("  - Imputed: ", n_imputed, " (", round(100 * n_imputed / nrow(final_result), 1), "%)")
+    message("  - Time elapsed: ", round(end_time - start_time, 2), " seconds")
   }
 
   final_result
@@ -268,17 +328,29 @@ generate_dist_from_sample <- function(n, max_length, mean, sd) {
 #'     \item `validation_issues`: Data frame with specific validation problems
 #'   }
 #'
-#' @note
+#' @details
 #' The function performs the following validations:
 #' \itemize{
 #'   \item Removes measurements without matching batch IDs
 #'   \item Filters invalid batch types (only G, S/L, I, N are valid)
 #'   \item Removes batches with invalid or missing fish counts (number <= 0 or NA)
-#'   \item For type G: validates min/max are not NA, min_length <= max_length, 
+#'   \item For type G: validates min/max are not NA, min_length <= max_length,
 #'         and sufficient sample size (>= min_individuals_G)
-#'   \item For type S/L: ensures at least min_individuals_SL measured individuals
+#'   \item For type S/L:
+#'     \itemize{
+#'       \item Ensures at least `min_individuals_SL` measured individuals
+#'       \item **Automatically corrects** batch counts when measured individuals exceed
+#'             recorded batch size (updates `number` to match measured count)
+#'     }
 #'   \item For types I and N: verifies measured count matches batch count
 #' }
+#'
+#' @note
+#' - For S/L batches, when measured individuals exceed the recorded batch count,
+#'   the batch `number` is **updated** rather than removed. This prevents data loss
+#'   while flagging the issue in `validation_issues`.
+#' - Batches with insufficient measured individuals (`< min_individuals_SL`) are
+#'   **removed** as they cannot generate reliable distributions.
 #'
 #' @examples
 #' \dontrun{
@@ -516,10 +588,31 @@ sanitize_batch_data <- function(
           stringsAsFactors = FALSE
         ))
       }
-
-      fish_batch <- fish_batch |>
-        dplyr::filter(!(batch_type == "S/L" & batch_id %in% low_measured$batch_id))
     }
+
+    wrong_count <- batch_SL |>
+      dplyr::left_join(measured_counts, by = "batch_id") |>
+      dplyr::filter(is.na(n_measured) | n_measured > number)
+
+    if (nrow(wrong_count) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = wrong_count$batch_id,
+        batch_type = "S/L",
+        issue = paste("Measured individual number > total number recorded in batch"),
+        stringsAsFactors = FALSE
+      ))
+
+      if (verbose) {
+        warning("corrected batch counts for: ", 
+          paste(wrong_count$batch_id, collapse = ", "),
+          " (measured > recorded)", call. = FALSE)
+      }
+
+      fish_batch[fish_batch$batch_id %in% wrong_count$batch_id, ]$number <- as.integer(wrong_count$n_measured)
+    }
+
+    fish_batch <- fish_batch |>
+      dplyr::filter(!(batch_type == "S/L" & batch_id %in% low_measured$batch_id))
   }
 
   ## Type I and N validation

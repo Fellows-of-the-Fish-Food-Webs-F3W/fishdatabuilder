@@ -167,5 +167,5 @@ sanitized$fish_batch |>
 ## Generate fish size from batch
 
 ```{r}
-ti <- generate_individual_sizes_vectorized(sanitized, verbose = TRUE)
+ti <- generate_individual_sizes(sanitized, verbose = TRUE)
 ```
