@@ -14,5 +14,6 @@ By default uses \code{get_species_aspe()} to retrieve raw data.}
 A data frame
 }
 \description{
-Clean species reference data by renaming species columns, and translating them.
+Clean species reference data by renaming species columns, translating them,
+and updating maximal length using FishBase when higher and available.
 }
