@@ -26,6 +26,7 @@ use_r("cleaning_operation")
 use_r("fish_batches")
 use_r("filtering_species")
 use_r("sanitize_fish_size")
+use_r("fish_weight")
 
 
 # Use test 
@@ -42,6 +43,7 @@ use_test("remove-impossible-lengths")
 use_test("length-sanitization-integration")
 use_test("sanitize-batch-data")
 use_test("generate-individual-size")
+use_test("compute-fish-weight")
 
 
 usethis::use_package("mockery", "Suggests")
