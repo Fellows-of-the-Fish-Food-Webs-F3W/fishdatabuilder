@@ -217,7 +217,7 @@ filter_operation_batch_measure <- function(
   stopifnot(
     length(unique(ele_sampling_by_point_as_over_bank$operation_id)) == nrow(ele_sampling_by_point_as_over_bank)
   )
-  ## 3) check that the selected points only correpond to the right protocol
+  ## 3) check that the selected points only correspond to the right protocol
   op_by_point_as_over_bank <- operation |>
     dplyr::filter(operation_id %in% ele_sampling_by_point_as_over_bank$operation_id)
   if (nrow(op_by_point_as_over_bank) > 0) {
@@ -326,8 +326,8 @@ filter_operation_batch_measure <- function(
     dplyr::filter(operation_id %in% operation$operation_id)
 
   # F) Return the filtered dataset
-  # NOTE: You might also filtered for
-  # - consistent sampling scheme per station
+  # NOTE: You might also filtered for
+  # - consistent sampling scheme per station
   # - consistent month of sampling per station
   # - single sampling per year per station
   list(
@@ -677,12 +677,12 @@ clean_operation_aspe <- function(
     )
   }
 
-  # Attach objective label to operation ids
+  # Attach objective label to operation ids
   op_objective <- op_objective %>%
     dplyr::rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
     dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) %>%
     dplyr::select(ope_id, objective = obj_libelle) %>%
-    # Nest objectives because operations can have several objectives
+    # Nest objectives because operations can have several objectives
     group_by(ope_id) %>%
     nest(obj_libelle = c(objective))
 
@@ -864,7 +864,7 @@ cleaning_point_group <- function(
     )
   }
 
-  # Rename columns and translate reference labels
+  # Rename columns and translate reference labels
   ref_point_group <- ref_point_group %>%
     dplyr::rename(grp_tgp_id = tgp_id, point_type = tgp_libelle) %>%
     dplyr::select(grp_tgp_id, point_type) %>%
@@ -1020,7 +1020,6 @@ clean_description_operation_aspe <- function(
     select(all_of(replacement_operation_description_col()))
 }
 
-
 #' Clean and standardize species reference data from ASPE database
 #'
 #' Clean species reference data by renaming species columns, translating them,
@@ -1111,99 +1110,76 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
   ) {
 
     fishbase_popchar |>
-
       # Remove missing FishBase Lmax values
       dplyr::filter(!is.na(.data$Lmax)) |>
-
       # Aggregate by FishBase species name
       dplyr::group_by(.data$Species) |>
-
       # Keep maximum FishBase Lmax and convert cm -> mm
       dplyr::summarise(
         fishbase_Lmax_mm = max(as.numeric(.data$Lmax), na.rm = TRUE) * 10,
         .groups = "drop"
       ) |>
-
       # Rename FishBase species column for joining
       dplyr::rename(
         latin_name_valid = Species
       ) |>
-
       # Reconnect FishBase validated names to original ASPE names
       dplyr::right_join(
         name_key,
         by = "latin_name_valid"
       ) |>
-
       # Keep only useful columns
       dplyr::select(
         latin_name,
         fishbase_Lmax_mm
       )
-
   } else {
-
     # If FishBase query returned no usable data,
     # create an empty FishBase maximal length table.
     tibble::tibble(
       latin_name = species_with_lmax,
       fishbase_Lmax_mm = NA_real_
     )
-
   }
 
   # Join FishBase maximal length back to ASPE species table
   species <- species |>
-
     dplyr::left_join(
       fishbase_lmax,
       by = "latin_name"
     ) |>
-
     dplyr::mutate(
-
       # Identify which source contributed the retained maximal length
       maximal_length_source = dplyr::case_when(
-
         # No ASPE or FishBase maximal length available
         is.na(.data$maximal_length_mm) &
           is.na(.data$fishbase_Lmax_mm) ~ NA_character_,
-
         # FishBase maximal length larger than ASPE value
         !is.na(.data$fishbase_Lmax_mm) &
           .data$fishbase_Lmax_mm >
           as.numeric(.data$maximal_length_mm) ~ "FishBase",
-
         # Otherwise keep ASPE value
         !is.na(.data$maximal_length_mm) ~ "ASPE",
-
         TRUE ~ NA_character_
-
       ),
-
       # Retain the maximum value between ASPE and FishBase
       maximal_length_mm = dplyr::case_when(
-
         is.na(.data$maximal_length_mm) &
           is.na(.data$fishbase_Lmax_mm) ~ NA_real_,
-
         TRUE ~ pmax(
           as.numeric(.data$maximal_length_mm),
           .data$fishbase_Lmax_mm,
           na.rm = TRUE
         )
-
       )
-
     ) |>
-
     # Remove temporary FishBase column
     dplyr::select(
       -fishbase_Lmax_mm
     )
-
   species
 }
+
 #' Clean and standardize batch reference data from ASPE database
 #'
 #' Clean batch reference data by renaming columns, and translating them.
