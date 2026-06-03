@@ -375,7 +375,7 @@ test_that("sanitize_batch_data handles verbose output", {
   # Test with verbose = TRUE
   expect_message(
     result <- sanitize_batch_data(
-      fish_batch = test_data$fish_batch,
+      fish_batch = test_data$fish_batch  |> filter(batch_id != 6),
       ind_measure = test_data$ind_measure,
       species_ref = test_data$species_ref,
       verbose = TRUE,

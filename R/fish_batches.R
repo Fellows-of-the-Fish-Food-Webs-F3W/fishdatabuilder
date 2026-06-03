@@ -620,7 +620,7 @@ sanitize_batch_data <- function(
       ))
 
       if (verbose) {
-        warning("corrected batch counts for: ", 
+        warning("corrected batch counts for batch_id: ",
           paste(wrong_count$batch_id, collapse = ", "),
           " (measured > recorded)", call. = FALSE)
       }

@@ -196,14 +196,15 @@ convert_length_to_weight <- function(
   
   # Add default coefficients for missing species
   if (length(missing_species) > 0) {
+  n_missing_species <- length(missing_species)
     if (verbose) {
-      message("Using default coefficients for: ", 
+      message("Using default coefficients for: ",
         paste(missing_species, collapse = ", "))
     }
     default_coeffs <- data.frame(
       species_code = missing_species,
-      a = default_coefficients["a"],
-      b = default_coefficients["b"],
+      a = rep(default_coefficients["a"], times = n_missing_species),
+      b = rep(default_coefficients["b"], times = n_missing_species),
       source = "default",
       stringsAsFactors = FALSE
     )

@@ -357,7 +357,7 @@ test_that("Edge cases (empty data, n=2 batches) work", {
   expect_equal(nrow(generate_individual_sizes(empty, verbose = FALSE)), 0)
   
   # Add G batch with n=2 (no imputation)
-  n2_batch <- data.frame(batch_id = 9, batch_type = "G", number = 2, species_code = "PER",
+  n2_batch <- data.frame(operation_id = 1, batch_id = 9, batch_type = "G", number = 2, species_code = "PER",
                          min_length = 100, max_length = 150, maximal_length_mm = 600)
   td$fish_batch <- rbind(td$fish_batch, n2_batch)
   
@@ -370,6 +370,5 @@ test_that("Edge cases (empty data, n=2 batches) work", {
 test_that("Verbose output works", {
   td <- create_test_sanitized_data()
   expect_message(generate_individual_sizes(td, verbose = TRUE), "Generating Individual Fish Sizes")
-  expect_silent(generate_individual_sizes(td, verbose = FALSE))
-})
+  expect_silent(generate_individual_sizes(td, verbose = FALSE)) })
 
