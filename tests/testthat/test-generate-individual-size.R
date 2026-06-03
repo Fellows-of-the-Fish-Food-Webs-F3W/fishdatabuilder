@@ -174,7 +174,7 @@ test_that("generate_individual_sizes produces correct output structure", {
   
   # Check structure
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("operation_id", "batch_id", "species_code", "size_mm"))
+  expect_named(result, c("operation_id", "batch_id", "species_code", "size_mm", "measured"))
   expect_type(result$batch_id, "integer")
   expect_type(result$species_code, "character")
   expect_type(result$size_mm, "double") # Rounded to mm
@@ -249,3 +249,127 @@ test_that("generate_individual_sizes produces biologically realistic sizes", {
     }
   }
 })
+
+
+# Get batch type lookup
+batch_type_lookup <- function(fish_batch) {
+  stats::setNames(fish_batch$batch_type, fish_batch$batch_id)
+}
+
+test_that("All batch types process correctly", {
+  td <- create_test_sanitized_data()
+  result <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  lookup <- batch_type_lookup(td$fish_batch)
+  
+  # Add batch type to result
+  result$batch_type <- lookup[as.character(result$batch_id)]
+  
+  # Check row counts match expectations
+  expect_equal(nrow(result), sum(td$fish_batch$number))
+  
+  # Type G: exactly 2 measured per batch
+  g_counts <- result |> dplyr::filter(batch_type == "G") |> dplyr::count(batch_id, measured)
+  expect_true(all(g_counts$n[g_counts$measured] == 2))
+  
+  # Type I & N: all measured
+  in_counts <- result |> dplyr::filter(batch_type %in% c("I", "N")) |> dplyr::count(batch_id, measured)
+  expect_true(all(in_counts$measured))
+  
+  # Type S/L: measured count matches ind_measure
+  for (bid in unique(result$batch_id[result$batch_type == "S/L"])) {
+    expect_equal(sum(result$batch_id == bid & result$measured), sum(td$ind_measure$batch_id == bid))
+  }
+})
+
+test_that("Measured individuals come first in each batch", {
+  td <- create_test_sanitized_data()
+  result <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  
+  result <- result |>
+    dplyr::group_by(batch_id) |>
+    dplyr::mutate(pos = dplyr::row_number()) |>
+    dplyr::ungroup()
+  
+  # For each batch, measured should be in first n positions
+  batch_checks <- result |>
+    dplyr::group_by(batch_id) |>
+    dplyr::summarise(
+      n_measured = sum(measured),
+      measured_first = all(measured[1:n_measured]),
+      imputed_last = if(n_measured < dplyr::n()) all(!measured[(n_measured+1):dplyr::n()]) else TRUE,
+      .groups = "drop"
+    )
+ 
+  expect_true(all(batch_checks$measured_first))
+  expect_true(all(batch_checks$imputed_last))
+})
+
+test_that("Type G measured individuals are min and max", {
+  td <- create_test_sanitized_data()
+  result <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  
+  g_batches <- td$fish_batch |> dplyr::filter(batch_type == "G")
+  
+  for (i in seq_len(nrow(g_batches))) {
+    bid <- g_batches$batch_id[i]
+    measured_vals <- result |> dplyr::filter(batch_id == bid, measured) |> dplyr::pull(size_mm)
+    expect_equal(sort(measured_vals), c(g_batches$min_length[i], g_batches$max_length[i]))
+  }
+})
+
+test_that("Type S/L preserves original measured values", {
+  td <- create_test_sanitized_data()
+  result <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  
+  for (bid in unique(td$ind_measure$batch_id)) {
+    result_measured <- result |> dplyr::filter(batch_id == bid, measured) |> dplyr::pull(size_mm)
+    original_measured <- td$ind_measure |> dplyr::filter(batch_id == bid) |> dplyr::pull(size)
+    expect_equal(sort(result_measured), sort(original_measured))
+  }
+})
+
+test_that("Seed reproducibility works", {
+  td <- create_test_sanitized_data()
+  r1 <- generate_individual_sizes(td, seed = 42, verbose = FALSE)
+  r2 <- generate_individual_sizes(td, seed = 42, verbose = FALSE)
+  r3 <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  
+  expect_equal(r1$size_mm, r2$size_mm)
+  expect_false(identical(r1$size_mm, r3$size_mm))
+})
+
+test_that("Species maximum lengths are respected", {
+  td <- create_test_sanitized_data()
+  td$fish_batch$maximal_length_mm[td$fish_batch$species_code == "PER"] <- 200
+  
+  result <- generate_individual_sizes(td, seed = 123, verbose = FALSE)
+  
+  per_sizes <- result |> dplyr::filter(species_code == "PER", measured = FALSE)
+  expect_true(all(per_sizes$size_mm <= 200))
+  expect_true(all(per_sizes$size_mm >= 0))
+})
+
+test_that("Edge cases (empty data, n=2 batches) work", {
+  td <- create_test_sanitized_data()
+  
+  # Empty data
+  empty <- list(fish_batch = td$fish_batch[0,], ind_measure = td$ind_measure[0,])
+  expect_equal(nrow(generate_individual_sizes(empty, verbose = FALSE)), 0)
+  
+  # Add G batch with n=2 (no imputation)
+  n2_batch <- data.frame(batch_id = 9, batch_type = "G", number = 2, species_code = "PER",
+                         min_length = 100, max_length = 150, maximal_length_mm = 600)
+  td$fish_batch <- rbind(td$fish_batch, n2_batch)
+  
+  result <- generate_individual_sizes(td, verbose = FALSE)
+  batch9 <- result |> dplyr::filter(batch_id == 9)
+  expect_equal(nrow(batch9), 2)
+  expect_true(all(batch9$measured))
+})
+
+test_that("Verbose output works", {
+  td <- create_test_sanitized_data()
+  expect_message(generate_individual_sizes(td, verbose = TRUE), "Generating Individual Fish Sizes")
+  expect_silent(generate_individual_sizes(td, verbose = FALSE))
+})
+
