@@ -304,7 +304,7 @@ test_that("cleaning_species_ref_aspe updates maximal length source column", {
     all(
       species_ref$maximal_length_source[
         !is.na(species_ref$maximal_length_mm)
-      ] %in% c("ASPE", "FishBase")
+      ] %in% c("aspe", "fishbase")
     )
   )
 })

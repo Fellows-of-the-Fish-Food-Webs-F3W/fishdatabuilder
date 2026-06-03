@@ -1024,11 +1024,22 @@ clean_description_operation_aspe <- function(
 #'
 #' Clean species reference data by renaming species columns, translating them,
 #' and updating maximal length using FishBase when higher and available.
+#' The source of the retained maximal length is returned in
+#' `maximal_length_source`.
 #'
 #' @param species A data frame containing species reference data.
 #'   By default uses `get_species_aspe()` to retrieve raw data.
 #'
-#' @return A data frame
+#' @return A data frame containing cleaned species reference data:
+#' \itemize{
+#'   \item `species_id`: Species identifier
+#'   \item `species_code`: Species code
+#'   \item `common_name_fr`: French common name
+#'   \item `latin_name`: Latin name
+#'   \item `maximal_length_mm`: Retained maximal length (in mm)
+#'   \item `maximal_length_source`: Source of the retained maximal length
+#'   (`"aspe"` or `"fishbase"`)
+#' }
 #
 #' @importFrom dplyr select rename rename_with mutate filter pull left_join right_join
 #' @importFrom dplyr case_when summarise group_by
@@ -1157,9 +1168,9 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
         # FishBase maximal length larger than ASPE value
         !is.na(.data$fishbase_Lmax_mm) &
           .data$fishbase_Lmax_mm >
-          as.numeric(.data$maximal_length_mm) ~ "FishBase",
+          as.numeric(.data$maximal_length_mm) ~ "fishbase",
         # Otherwise keep ASPE value
-        !is.na(.data$maximal_length_mm) ~ "ASPE",
+        !is.na(.data$maximal_length_mm) ~ "aspe",
         TRUE ~ NA_character_
       ),
       # Retain the maximum value between ASPE and FishBase
