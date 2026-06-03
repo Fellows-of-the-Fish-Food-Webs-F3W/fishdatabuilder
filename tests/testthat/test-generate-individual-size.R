@@ -1,6 +1,7 @@
 # Helper function to create test data
 create_test_sanitized_data <- function() {
   fish_batch <- data.frame(
+    operation_id = rep(c(1,2), each = 4),
     batch_id = 1:8,
     batch_type = c("G", "G", "S/L", "S/L", "I", "I", "N", "N"),
     number = c(10, 5, 8, 3, 4, 2, 1, 1),
@@ -173,7 +174,7 @@ test_that("generate_individual_sizes produces correct output structure", {
   
   # Check structure
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("batch_id", "species_code", "size_mm"))
+  expect_named(result, c("operation_id", "batch_id", "species_code", "size_mm"))
   expect_type(result$batch_id, "integer")
   expect_type(result$species_code, "character")
   expect_type(result$size_mm, "double") # Rounded to mm
@@ -190,7 +191,6 @@ test_that("generate_individual_sizes handles edge cases", {
     fish_batch = test_data$fish_batch[0, ],
     ind_measure = test_data$ind_measure[0, ]
   )
-  
   result <- generate_individual_sizes(empty_sanitized, verbose = FALSE)
   expect_equal(nrow(result), 0)
   #expect_named(result, c("batch_id", "species_code", "size_mm"))

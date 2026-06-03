@@ -197,6 +197,23 @@ generate_individual_sizes <- function(
   }
 
   final_result <- dplyr::bind_rows(results)
+  if (length(results) == 0) {
+    final_result <- final_result |>
+      dplyr::mutate(
+        batch_id = NA,
+        species_code = NA,
+        size_mm = NA
+      )
+  }
+
+  final_result <- dplyr::left_join(
+    final_result,
+    fish_batch |>
+      dplyr::select(batch_id, operation_id),
+    by = join_by(batch_id)
+  ) |>
+    dplyr::relocate(operation_id)
+
 
   if (verbose) {
     end_time <- Sys.time()
