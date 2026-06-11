@@ -11,9 +11,20 @@ cleaning_species_ref_aspe(species = get_species_aspe())
 By default uses \code{get_species_aspe()} to retrieve raw data.}
 }
 \value{
-A data frame
+A data frame containing cleaned species reference data:
+\itemize{
+\item \code{species_id}: Species identifier
+\item \code{species_code}: Species code
+\item \code{common_name_fr}: French common name
+\item \code{latin_name}: Latin name
+\item \code{maximal_length_mm}: Retained maximal length (in mm)
+\item \code{maximal_length_source}: Source of the retained maximal length
+(\code{"aspe"} or \code{"fishbase"})
+}
 }
 \description{
 Clean species reference data by renaming species columns, translating them,
 and updating maximal length using FishBase when higher and available.
+The source of the retained maximal length is returned in
+\code{maximal_length_source}.
 }

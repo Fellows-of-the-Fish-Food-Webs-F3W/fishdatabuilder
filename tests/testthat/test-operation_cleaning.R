@@ -283,28 +283,105 @@ test_that("Reference table loading works", {
     names(replacement_batch_ref_col())
   )
 
-  species_ref <- cleaning_species_ref_aspe()
+  expect_warning(species_ref <- cleaning_species_ref_aspe(), "Missing in FishBase")
+
   expect_s3_class(species_ref, "data.frame")
-  expect_setequal(
-    names(species_ref),
-    c(names(replacement_species_ref_col()), "maximal_length_source")
+  expect_setequal(names(species_ref), c(names(replacement_species_ref_col()), "maximal_length_source")
   )
 })
 
 test_that("cleaning_species_ref_aspe updates maximal length source column", {
-  species_ref <- cleaning_species_ref_aspe()
+  expect_warning(
+    species_ref <- cleaning_species_ref_aspe(),
+    "Missing in FishBase"
+  )
+
   expect_s3_class(species_ref, "data.frame")
-  expect_true(
-    "maximal_length_source" %in% names(species_ref)
-  )
-  expect_true(
-    "maximal_length_mm" %in% names(species_ref)
-  )
+
+  expect_true("maximal_length_source" %in% names(species_ref))
+  expect_true("maximal_length_mm" %in% names(species_ref))
+
   expect_true(
     all(
       species_ref$maximal_length_source[
         !is.na(species_ref$maximal_length_mm)
       ] %in% c("aspe", "fishbase")
     )
+  )
+})
+
+test_that("cleaning_species_ref_aspe retains expected maximal length values", {
+  species <- data.frame(
+    esp_id = c(1, 2, 3, 4),
+    esp_code_sandre = c(1, 2, 3, 4),
+    esp_code_alternatif = c("FBH", "ASH", "MIS", "NON"),
+    esp_nom_commun = c(
+      "FishBase higher",
+      "ASPE higher",
+      "Missing FishBase",
+      "No ASPE length"
+    ),
+    esp_nom_latin = c(
+      "Fishbase higher",
+      "Aspe higher",
+      "Missing fishbase",
+      "No aspe length"
+    ),
+    esp_taille_maximale = c(100, 300, 250, NA)
+  )
+
+  testthat::local_mocked_bindings(
+    validate_names = function(species) {
+      dplyr::case_when(
+        species == "Missing fishbase" ~ NA_character_,
+        TRUE ~ species
+      )
+    },
+    popchar = function(species) {
+      tibble::tibble(
+        Species = c("Fishbase higher", "Aspe higher"),
+        Lmax = c(15, 20)
+      )
+    },
+    .package = "rfishbase"
+  )
+
+  expect_warning(
+    result <- cleaning_species_ref_aspe(species = species),
+    "Missing in FishBase"
+  )
+
+  expect_equal(
+    result$maximal_length_mm[result$species_code == "FBH"],
+    150
+  )
+  expect_equal(
+    result$maximal_length_source[result$species_code == "FBH"],
+    "fishbase"
+  )
+
+  expect_equal(
+    result$maximal_length_mm[result$species_code == "ASH"],
+    300
+  )
+  expect_equal(
+    result$maximal_length_source[result$species_code == "ASH"],
+    "aspe"
+  )
+
+  expect_equal(
+    result$maximal_length_mm[result$species_code == "MIS"],
+    250
+  )
+  expect_equal(
+    result$maximal_length_source[result$species_code == "MIS"],
+    "aspe"
+  )
+
+  expect_true(
+    is.na(result$maximal_length_mm[result$species_code == "NON"])
+  )
+  expect_true(
+    is.na(result$maximal_length_source[result$species_code == "NON"])
   )
 })

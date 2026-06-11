@@ -1020,6 +1020,52 @@ clean_description_operation_aspe <- function(
     select(all_of(replacement_operation_description_col()))
 }
 
+#' ASPE species taxonomic groups
+#'
+#' Internal helper returning ASPE species codes grouped by taxonomic level.
+#'
+#' @return A named list of character vectors.
+#'
+#' @keywords internal
+#' @noRd
+species_taxonomic_group <- function() {
+  list(
+    species = c(
+      "ABH", "ABL", "AGO", "ALA", "AMA", "AMB", "AMO", "ANC", "APC", "APH",
+      "AWA", "BAE", "BAF", "BAM", "BBB", "BBG", "BBP", "BLE", "BLN", "BOU",
+      "BRB", "BRE", "BRO", "CAA", "CAK", "CAR", "CAS", "CAT", "CCA", "CCO",
+      "CCU", "CDR", "CGR", "CGT", "CHC", "CHE", "CHP", "CMI", "COA", "CPV",
+      "CRI", "APE", "CTI", "ALF", "CHA", "ANG", "APR", "ATB", "ATH", "CAG",
+      "ELF", "ELM", "EPE", "ATS", "EPI", "EPT", "EST", "FLE", "GAM", "GAR",
+      "GBN", "GDL", "GFL", "GKS", "GOB", "GOK", "GOL", "GON", "GOO", "GOU",
+      "GRC", "GTN", "GUP", "HAR", "HOT", "HOX", "HUC", "LAN", "LIJ", "LIP",
+      "LOB", "LOE", "LOF", "LOM", "LOR", "LOT", "LOU", "LPM", "LPP", "LPR",
+      "MAI", "MER", "MGL", "MIC", "MOT", "MUC", "MUD", "MUP", "MUS", "OBL",
+      "OBR", "PAP", "OME", "GLO", "GRE", "GOA", "IDE", "PER", "PES", "PIM",
+      "PLI", "PTM", "RBC", "ROT", "RUB", "SAN", "SAR", "SAT", "SCO", "SDF",
+      "SIC", "SIL", "SOL", "SPI", "SPT", "STE", "STL", "SYN", "TAC", "TAD",
+      "TAN", "TFA", "TOX", "TRF", "TRM", "UMP", "VAB", "VAC", "VAI", "VAN",
+      "VAR", "VCU", "VIM", "VRO", "XIP", "YIR", "OPG", "GBT", "SRO", "ROI",
+      "BLI", "BRA", "BRI", "GAH", "OBA", "VAD", "PSR", "VAF", "POB", "VAL",
+      "PCH", "BRD", "ASP", "CHF", "CHH", "CHB", "CHR", "EPL", "EPP", "LOL",
+      "VAA", "ALM", "LOQ", "KUL", "SCH"
+    ),
+    subspecies = c("ABI", "ALR", "OMI", "ONI", "TRC", "TRL", "CAD"),
+    genus = c(
+      "AN?", "BBX", "BLX", "BRX", "ALX", "AT?", "BAX", "CAX", "COR", "CCX",
+      "ES?", "LPX", "GOX", "ORE", "ROX", "ESX", "OBX", "GAX", "OPX", "PHX",
+      "SQX", "LOX", "PUX", "CHX"
+    ),
+    family = c("CLU", "CUP", "TIL", "SAL", "PR?", "GB?", "LP?", "CO?", "MU?"),
+    hybrid = c("HBG", "HAT"),
+    `no-fish species` = c(
+      "APP", "APT", "ASA", "ASL", "ATY", "CRB", "CRC", "CRE", "CRG", "GRI",
+      "GRT", "GRV", "MAA", "MAC", "MAH", "MAL", "MAT", "ECR", "OCL", "PCC",
+      "PFL", "OCI", "PCF", "OCV", "PCV", "FAR", "OCX", "OCJ"
+    )
+  )
+}
+
 #' Clean and standardize species reference data from ASPE database
 #'
 #' Clean species reference data by renaming species columns, translating them,
@@ -1064,6 +1110,22 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
     )
     )
 
+  # Classify ASPE taxa to make FishBase warning easier to interpret.
+  taxonomic_group <- species_taxonomic_group()
+
+  species <- species |>
+    dplyr::mutate(
+      taxonomic_group = dplyr::case_when(
+        .data$species_code %in% taxonomic_group$species ~ "species",
+        .data$species_code %in% taxonomic_group$subspecies ~ "subspecies",
+        .data$species_code %in% taxonomic_group$genus ~ "genus",
+        .data$species_code %in% taxonomic_group$family ~ "family",
+        .data$species_code %in% taxonomic_group$hybrid ~ "hybrid",
+        .data$species_code %in% taxonomic_group$`no-fish species` ~ "no-fish species",
+        TRUE ~ "unclassified"
+      )
+    )
+
   # Keep only species with an existing ASPE maximal length.
   # Species without initial maximal length are not queried in FishBase.
   species_with_lmax <- species |>
@@ -1089,6 +1151,55 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
   latin_name_valid <- suppressMessages(
     rfishbase::validate_names(species_with_lmax)
   )
+
+  species_not_validated <- tibble::tibble(
+    latin_name = species_with_lmax,
+    latin_name_valid = latin_name_valid
+  ) |>
+    dplyr::filter(
+      is.na(.data$latin_name_valid)
+    ) |>
+    dplyr::left_join(
+      species |>
+        dplyr::select(
+          species_code,
+          latin_name,
+          taxonomic_group
+        ),
+      by = "latin_name"
+    ) |>
+    dplyr::distinct(
+      taxonomic_group,
+      species_code,
+      latin_name
+    ) |>
+    dplyr::mutate(
+      warning_label = paste0(
+        "[", .data$species_code, "] ", .data$latin_name
+      )
+    )
+
+  if (nrow(species_not_validated) > 0L) {
+    missing_message <- species_not_validated |>
+      dplyr::group_by(
+        .data$taxonomic_group
+      ) |>
+      dplyr::summarise(
+        labels = paste(.data$warning_label, collapse = ", "),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        message = paste0(.data$taxonomic_group, ": ", .data$labels)
+      ) |>
+      dplyr::pull(.data$message)
+
+    warning(
+      "Missing in FishBase\n",
+      paste(missing_message, collapse = ";\n"),
+      ".\nFishBase maximal length may not be compared to those in ASPE.",
+      call. = FALSE
+    )
+  }
 
   # Create a lookup table linking original ASPE names
   # to FishBase validated names.
@@ -1119,7 +1230,6 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
     nrow(fishbase_popchar) > 0L &&
     all(c("Species", "Lmax") %in% names(fishbase_popchar))
   ) {
-
     fishbase_popchar |>
       # Remove missing FishBase Lmax values
       dplyr::filter(!is.na(.data$Lmax)) |>
@@ -1184,10 +1294,12 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
         )
       )
     ) |>
-    # Remove temporary FishBase column
+    # Remove temporary FishBase and taxonomic grouping columns
     dplyr::select(
-      -fishbase_Lmax_mm
+      -fishbase_Lmax_mm,
+      -taxonomic_group
     )
+
   species
 }
 
