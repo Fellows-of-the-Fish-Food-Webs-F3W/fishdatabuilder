@@ -1066,17 +1066,22 @@ species_taxonomic_group <- function() {
   )
 }
 
-#' Clean and standardize species reference data from ASPE database
+#' Standardize species reference data from ASPE database
 #'
-#' Clean species reference data by renaming species columns, translating them,
-#' and updating maximal length using FishBase when higher and available.
+#' Standardize species reference data by renaming columns, translating them,
+#' and updating maximal length using FishBase with `rfishbase::popchar()`
+#' or an external reference when higher and available.
 #' The source of the retained maximal length is returned in
 #' `maximal_length_source`.
 #'
 #' @param species A data frame containing species reference data.
-#'   By default uses `get_species_aspe()` to retrieve raw data.
+#'   By default uses `get_species_aspe()`.
+#' @param reference_lmax Optional pre-processed maximal length reference table.
+#'   Must contain `latin_name`, `maximal_length_mm`, and
+#'   `maximal_length_source`. If `NULL`, reference lengths are retrieved from
+#'   FishBase using `rfishbase::popchar()`.
 #'
-#' @return A data frame containing cleaned species reference data:
+#' @return A data frame containing standardized species reference data:
 #' \itemize{
 #'   \item `species_id`: Species identifier
 #'   \item `species_code`: Species code
@@ -1084,31 +1089,25 @@ species_taxonomic_group <- function() {
 #'   \item `latin_name`: Latin name
 #'   \item `maximal_length_mm`: Retained maximal length (in mm)
 #'   \item `maximal_length_source`: Source of the retained maximal length
-#'   (`"aspe"` or `"fishbase"`)
+#'   (`"aspe"`, `"fishbase"` or the value provided in `reference_lmax`)
 #' }
 #
 #' @importFrom dplyr select rename rename_with mutate filter pull left_join right_join
-#' @importFrom dplyr case_when summarise group_by
+#' @importFrom dplyr case_when summarise group_by distinct coalesce arrange
 #' @importFrom stringr str_replace_all
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' @importFrom rfishbase validate_names popchar
 #' @export
-cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
+cleaning_species_ref_aspe <- function(species = get_species_aspe(), reference_lmax = NULL) {
 
   # Remove column prefix
   species <- dplyr::rename_with(species, ~gsub("esp_", "", .x, fixed = TRUE))
 
   # Replace column names
-  species <- dplyr::select(species,
-    dplyr::any_of(replacement_species_ref_col()))
+  species <- dplyr::select(species, dplyr::any_of(replacement_species_ref_col()))
 
   # Fix species latin name
-  species <- dplyr::mutate(species,
-    latin_name = stringr::str_replace_all(
-      latin_name,
-      species_latin_name_to_replace()
-    )
-    )
+  species <- dplyr::mutate(species, latin_name = stringr::str_replace_all(latin_name, species_latin_name_to_replace()))
 
   # Classify ASPE taxa to make FishBase warning easier to interpret.
   taxonomic_group <- species_taxonomic_group()
@@ -1129,9 +1128,7 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
   # Keep only species with an existing ASPE maximal length.
   # Species without initial maximal length are not queried in FishBase.
   species_with_lmax <- species |>
-    dplyr::filter(
-      !is.na(.data$maximal_length_mm)
-    ) |>
+    dplyr::filter(!is.na(.data$maximal_length_mm)) |>
     dplyr::pull(.data$latin_name) |>
     unique()
 
@@ -1140,163 +1137,170 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe()) {
   if (length(species_with_lmax) == 0L) {
     return(
       species |>
-        dplyr::mutate(
-          maximal_length_source = NA_character_
-        )
+        dplyr::mutate(maximal_length_source = NA_character_) |>
+        dplyr::select(-taxonomic_group)
     )
   }
 
-  # Validate species names against FishBase accepted taxonomy.
-  # Synonyms are automatically replaced when possible.
-  latin_name_valid <- suppressMessages(
-    rfishbase::validate_names(species_with_lmax)
-  )
+  if (!is.null(reference_lmax)) {
 
-  species_not_validated <- tibble::tibble(
-    latin_name = species_with_lmax,
-    latin_name_valid = latin_name_valid
-  ) |>
-    dplyr::filter(
-      is.na(.data$latin_name_valid)
-    ) |>
-    dplyr::left_join(
-      species |>
-        dplyr::select(
-          species_code,
-          latin_name,
-          taxonomic_group
-        ),
-      by = "latin_name"
-    ) |>
-    dplyr::distinct(
-      taxonomic_group,
-      species_code,
-      latin_name
-    ) |>
-    dplyr::mutate(
-      warning_label = paste0(
-        "[", .data$species_code, "] ", .data$latin_name
-      )
-    )
+    # Use a pre-processed external maximal length reference table.
+    # This table can come from FishBase or any other curated source.
+    required_reference_cols <- c("latin_name", "maximal_length_mm", "maximal_length_source")
+    missing_reference_cols <- setdiff(required_reference_cols, names(reference_lmax))
 
-  if (nrow(species_not_validated) > 0L) {
-    missing_message <- species_not_validated |>
-      dplyr::group_by(
-        .data$taxonomic_group
-      ) |>
-      dplyr::summarise(
-        labels = paste(.data$warning_label, collapse = ", "),
-        .groups = "drop"
-      ) |>
-      dplyr::mutate(
-        message = paste0(.data$taxonomic_group, ": ", .data$labels)
-      ) |>
-      dplyr::pull(.data$message)
+    if (length(missing_reference_cols) > 0L) {
+      stop("`reference_lmax` missing required columns: ", paste(missing_reference_cols, collapse = ", "), call. = FALSE)
+    }
 
-    warning(
-      "Missing in FishBase\n",
-      paste(missing_message, collapse = ";\n"),
-      ".\nFishBase maximal length may not be compared to those in ASPE.",
-      call. = FALSE
-    )
-  }
+    reference_lmax <- reference_lmax |>
+      tibble::as_tibble() |>
+      dplyr::transmute(latin_name = .data$latin_name, reference_Lmax_mm = as.numeric(.data$maximal_length_mm), reference_Lmax_source = .data$maximal_length_source) |>
+      dplyr::arrange(.data$latin_name, dplyr::desc(.data$reference_Lmax_mm)) |>
+      dplyr::distinct(.data$latin_name, .keep_all = TRUE)
 
-  # Create a lookup table linking original ASPE names
-  # to FishBase validated names.
-  # If validation fails, keep the original name.
-  name_key <- tibble::tibble(
-    latin_name = species_with_lmax,
-    latin_name_valid = dplyr::coalesce(
-      latin_name_valid,
-      species_with_lmax
-    )
-  )
-
-  # Query FishBase.
-  # Messages are suppressed to avoid noisy console outputs.
-  # If the FishBase query fails, return an empty tibble.
-  fishbase_popchar <- tryCatch(
-    suppressMessages(
-      rfishbase::popchar(unique(name_key$latin_name_valid))
-    ),
-    error = function(e) tibble::tibble()
-  )
-
-  # Extract FishBase maximal length (Lmax).
-  # FishBase Lmax values are expressed in centimetres and converted to millimetres.
-  # If multiple Lmax records exist for one species,
-  # keep the maximum available value whatever the type of measurement.
-  fishbase_lmax <- if (
-    nrow(fishbase_popchar) > 0L &&
-    all(c("Species", "Lmax") %in% names(fishbase_popchar))
-  ) {
-    fishbase_popchar |>
-      # Remove missing FishBase Lmax values
-      dplyr::filter(!is.na(.data$Lmax)) |>
-      # Aggregate by FishBase species name
-      dplyr::group_by(.data$Species) |>
-      # Keep maximum FishBase Lmax and convert cm -> mm
-      dplyr::summarise(
-        fishbase_Lmax_mm = max(as.numeric(.data$Lmax), na.rm = TRUE) * 10,
-        .groups = "drop"
-      ) |>
-      # Rename FishBase species column for joining
-      dplyr::rename(
-        latin_name_valid = Species
-      ) |>
-      # Reconnect FishBase validated names to original ASPE names
-      dplyr::right_join(
-        name_key,
-        by = "latin_name_valid"
-      ) |>
-      # Keep only useful columns
-      dplyr::select(
-        latin_name,
-        fishbase_Lmax_mm
-      )
   } else {
-    # If FishBase query returned no usable data,
-    # create an empty FishBase maximal length table.
-    tibble::tibble(
+
+    # Validate species names against FishBase accepted taxonomy.
+    # Synonyms are automatically replaced when possible.
+    latin_name_valid <- suppressMessages(rfishbase::validate_names(species_with_lmax))
+
+    species_not_validated <- tibble::tibble(
       latin_name = species_with_lmax,
-      fishbase_Lmax_mm = NA_real_
+      latin_name_valid = latin_name_valid
+    ) |>
+      dplyr::filter(is.na(.data$latin_name_valid)) |>
+      dplyr::left_join(
+        species |>
+          dplyr::select(species_code, latin_name, taxonomic_group),
+        by = "latin_name"
+      ) |>
+      dplyr::distinct(taxonomic_group, species_code, latin_name) |>
+      dplyr::mutate(
+        warning_label = paste0("[", .data$species_code, "] ", .data$latin_name)
+      )
+
+    if (nrow(species_not_validated) > 0L) {
+      missing_message <- species_not_validated |>
+        dplyr::group_by(.data$taxonomic_group) |>
+        dplyr::summarise(
+          labels = paste(.data$warning_label, collapse = ", "),
+          .groups = "drop"
+        ) |>
+        dplyr::mutate(
+          message = paste0(.data$taxonomic_group, ": ", .data$labels)
+        ) |>
+        dplyr::pull(.data$message)
+
+      warning(
+        "Missing in FishBase\n",
+        paste(missing_message, collapse = ";\n"),
+        ".\nFishBase maximal length may not be compared to those in ASPE.",
+        call. = FALSE
+      )
+    }
+
+    # Create a lookup table linking original ASPE names
+    # to FishBase validated names.
+    # If validation fails, keep the original name.
+    name_key <- tibble::tibble(
+      latin_name = species_with_lmax,
+      latin_name_valid = dplyr::coalesce(
+        latin_name_valid,
+        species_with_lmax
+      )
     )
+
+    # Query FishBase.
+    # Messages are suppressed to avoid noisy console outputs.
+    # If the FishBase query fails, return an empty tibble.
+    fishbase_popchar <- tryCatch(
+      suppressMessages(
+        rfishbase::popchar(unique(name_key$latin_name_valid))
+      ),
+      error = function(e) tibble::tibble()
+    )
+
+    # Extract FishBase maximal length (Lmax).
+    # FishBase Lmax values are expressed in centimetres and converted to millimetres.
+    # If multiple Lmax records exist for one species,
+    # keep the maximum available value whatever the type of measurement.
+    reference_lmax <- if (
+      nrow(fishbase_popchar) > 0L &&
+      all(c("Species", "Lmax") %in% names(fishbase_popchar))
+    ) {
+      fishbase_popchar |>
+        # Remove missing FishBase Lmax values
+        dplyr::filter(!is.na(.data$Lmax)) |>
+        # Aggregate by FishBase species name
+        dplyr::group_by(.data$Species) |>
+        # Keep maximum FishBase Lmax and convert cm -> mm
+        dplyr::summarise(
+          reference_Lmax_mm = max(as.numeric(.data$Lmax), na.rm = TRUE) * 10,
+          .groups = "drop"
+        ) |>
+        # Rename FishBase species column for joining
+        dplyr::rename(latin_name_valid = Species) |>
+        # Reconnect FishBase validated names to original ASPE names
+        dplyr::right_join(name_key, by = "latin_name_valid") |>
+        # Keep only useful columns
+        dplyr::transmute(
+          latin_name = .data$latin_name,
+          reference_Lmax_mm = .data$reference_Lmax_mm,
+          reference_Lmax_source = "fishbase"
+        )
+    } else {
+      # If FishBase query returned no usable data,
+      # create an empty FishBase maximal length table.
+      tibble::tibble(
+        latin_name = species_with_lmax,
+        reference_Lmax_mm = NA_real_,
+        reference_Lmax_source = NA_character_
+      )
+    }
   }
 
-  # Join FishBase maximal length back to ASPE species table
+  # Join reference maximal length back to ASPE species table
   species <- species |>
-    dplyr::left_join(
-      fishbase_lmax,
-      by = "latin_name"
-    ) |>
+    dplyr::left_join(reference_lmax, by = "latin_name") |>
     dplyr::mutate(
       # Identify which source contributed the retained maximal length
       maximal_length_source = dplyr::case_when(
-        # No ASPE or FishBase maximal length available
+        # No ASPE or reference maximal length available
         is.na(.data$maximal_length_mm) &
-          is.na(.data$fishbase_Lmax_mm) ~ NA_character_,
-        # FishBase maximal length larger than ASPE value
-        !is.na(.data$fishbase_Lmax_mm) &
-          .data$fishbase_Lmax_mm >
-          as.numeric(.data$maximal_length_mm) ~ "fishbase",
+          is.na(.data$reference_Lmax_mm) ~ NA_character_,
+
+        # Reference maximal length available but ASPE value missing
+        !is.na(.data$reference_Lmax_mm) &
+          is.na(.data$maximal_length_mm) ~ .data$reference_Lmax_source,
+
+        # Reference maximal length larger than ASPE value
+        !is.na(.data$reference_Lmax_mm) &
+          .data$reference_Lmax_mm >
+          as.numeric(.data$maximal_length_mm) ~ .data$reference_Lmax_source,
+
         # Otherwise keep ASPE value
         !is.na(.data$maximal_length_mm) ~ "aspe",
+
         TRUE ~ NA_character_
       ),
-      # Retain the maximum value between ASPE and FishBase
+
+      # Retain the maximum value between ASPE and reference
       maximal_length_mm = dplyr::case_when(
         is.na(.data$maximal_length_mm) &
-          is.na(.data$fishbase_Lmax_mm) ~ NA_real_,
+          is.na(.data$reference_Lmax_mm) ~ NA_real_,
+
         TRUE ~ pmax(
           as.numeric(.data$maximal_length_mm),
-          .data$fishbase_Lmax_mm,
+          .data$reference_Lmax_mm,
           na.rm = TRUE
         )
       )
     ) |>
-    # Remove temporary FishBase and taxonomic grouping columns
+    # Remove temporary reference and taxonomic grouping columns
     dplyr::select(
-      -fishbase_Lmax_mm,
+      -reference_Lmax_mm,
+      -reference_Lmax_source,
       -taxonomic_group
     )
 

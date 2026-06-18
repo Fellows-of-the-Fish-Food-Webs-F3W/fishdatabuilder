@@ -310,62 +310,64 @@ test_that("cleaning_species_ref_aspe updates maximal length source column", {
   )
 })
 
-test_that("cleaning_species_ref_aspe retains expected maximal length values", {
+test_that("cleaning_species_ref_aspe retains expected maximal length values with reference_lmax", {
   species <- data.frame(
     esp_id = c(1, 2, 3, 4),
     esp_code_sandre = c(1, 2, 3, 4),
-    esp_code_alternatif = c("FBH", "ASH", "MIS", "NON"),
+    esp_code_alternatif = c("REF", "ASP", "MIS", "NON"),
     esp_nom_commun = c(
-      "FishBase higher",
+      "Reference higher",
       "ASPE higher",
-      "Missing FishBase",
+      "Missing reference",
       "No ASPE length"
     ),
     esp_nom_latin = c(
-      "Fishbase higher",
+      "Reference higher",
       "Aspe higher",
-      "Missing fishbase",
+      "Missing reference",
       "No aspe length"
     ),
     esp_taille_maximale = c(100, 300, 250, NA)
   )
 
-  testthat::local_mocked_bindings(
-    validate_names = function(species) {
-      dplyr::case_when(
-        species == "Missing fishbase" ~ NA_character_,
-        TRUE ~ species
-      )
-    },
-    popchar = function(species) {
-      tibble::tibble(
-        Species = c("Fishbase higher", "Aspe higher"),
-        Lmax = c(15, 20)
-      )
-    },
-    .package = "rfishbase"
+  reference_lmax <- tibble::tibble(
+    latin_name = c(
+      "Reference higher",
+      "Aspe higher",
+      "No aspe length"
+    ),
+    maximal_length_mm = c(
+      150,
+      200,
+      400
+    ),
+    maximal_length_source = c(
+      "external_reference",
+      "external_reference",
+      "external_reference"
+    )
   )
 
-  expect_warning(
-    result <- cleaning_species_ref_aspe(species = species),
-    "Missing in FishBase"
+  result <- cleaning_species_ref_aspe(
+    species = species,
+    reference_lmax = reference_lmax
   )
 
   expect_equal(
-    result$maximal_length_mm[result$species_code == "FBH"],
+    result$maximal_length_mm[result$species_code == "REF"],
     150
   )
   expect_equal(
-    result$maximal_length_source[result$species_code == "FBH"],
-    "fishbase"
+    result$maximal_length_source[result$species_code == "REF"],
+    "external_reference"
   )
 
   expect_equal(
-    result$maximal_length_mm[result$species_code == "ASH"],
+    result$maximal_length_mm[result$species_code == "ASP"],
     300
   )
   expect_equal(
-    result$maximal_length_source[result$species_code == "ASH"],
+    result$maximal_length_source[result$species_code == "ASP"],
     "aspe"
   )
 
@@ -378,10 +380,38 @@ test_that("cleaning_species_ref_aspe retains expected maximal length values", {
     "aspe"
   )
 
-  expect_true(
-    is.na(result$maximal_length_mm[result$species_code == "NON"])
+  expect_equal(
+    result$maximal_length_mm[result$species_code == "NON"],
+    400
   )
-  expect_true(
-    is.na(result$maximal_length_source[result$species_code == "NON"])
+  expect_equal(
+    result$maximal_length_source[result$species_code == "NON"],
+    "external_reference"
   )
 })
+
+
+test_that("cleaning_species_ref_aspe validates reference_lmax columns", {
+  species <- data.frame(
+    esp_id = 1,
+    esp_code_sandre = 1,
+    esp_code_alternatif = "REF",
+    esp_nom_commun = "Reference higher",
+    esp_nom_latin = "Reference higher",
+    esp_taille_maximale = 100
+  )
+
+  bad_reference_lmax <- tibble::tibble(
+    latin_name = "Reference higher",
+    maximal_length_mm = 150
+  )
+
+  expect_error(
+    cleaning_species_ref_aspe(
+      species = species,
+      reference_lmax = bad_reference_lmax
+    ),
+    "`reference_lmax` missing required columns"
+  )
+})
+
