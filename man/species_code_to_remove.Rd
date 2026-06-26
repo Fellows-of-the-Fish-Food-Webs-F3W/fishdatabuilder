@@ -71,7 +71,7 @@ remove_codes <- species_code_to_remove(not_determined = FALSE)
 # Use in filtering operations
 clean_fish_data <- fish_data \%>\%
   dplyr::filter(!species_code \%in\% species_code_to_remove())
-  
+
 # Keep all species (empty removal list)
 keep_all <- species_code_to_remove(not_fish = FALSE, not_determined = FALSE)
 }

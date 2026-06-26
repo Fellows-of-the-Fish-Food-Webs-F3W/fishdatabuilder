@@ -7,7 +7,7 @@
 clean_fish_batch(
   fish_batch = get_fish_batch_aspe(),
   batch_ref = cleaning_ref_batch_type_aspe(),
-  species_ref = cleaning_species_ref_aspe(),
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE),
   length_ref = cleaning_ref_length_type_aspe(),
   detail_sampling = cleaning_elementary_sampling()
 )

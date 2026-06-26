@@ -1080,6 +1080,9 @@ species_taxonomic_group <- function() {
 #'   Must contain `latin_name`, `maximal_length_mm`, and
 #'   `maximal_length_source`. If `NULL`, reference lengths are retrieved from
 #'   FishBase using `rfishbase::popchar()`.
+#' @param warn_missing_fishbase Logical. If `TRUE` (default), emit a warning
+#'   when the ASPE maximal length of a taxon cannot be compared with
+#'   FishBase. Set to `FALSE` to suppress this warning.
 #'
 #' @return A data frame containing standardized species reference data:
 #' \itemize{
@@ -1098,7 +1101,7 @@ species_taxonomic_group <- function() {
 #' @importFrom tibble tibble as_tibble
 #' @importFrom rfishbase validate_names popchar
 #' @export
-cleaning_species_ref_aspe <- function(species = get_species_aspe(), reference_lmax = NULL) {
+cleaning_species_ref_aspe <- function(species = get_species_aspe(), reference_lmax = NULL, warn_missing_fishbase = TRUE) {
 
   # Remove column prefix
   species <- dplyr::rename_with(species, ~gsub("esp_", "", .x, fixed = TRUE))
@@ -1192,12 +1195,14 @@ cleaning_species_ref_aspe <- function(species = get_species_aspe(), reference_lm
         ) |>
         dplyr::pull(.data$message)
 
-      warning(
-        "Missing in FishBase\n",
-        paste(missing_message, collapse = ";\n"),
-        ".\nFishBase maximal length may not be compared to those in ASPE.",
-        call. = FALSE
-      )
+      if (warn_missing_fishbase) {
+        warning(
+          "Missing in FishBase\n",
+          paste(missing_message, collapse = ";\n"),
+          ".\nFishBase maximal length may not be compared to those in ASPE.",
+          call. = FALSE
+        )
+      }
     }
 
     # Create a lookup table linking original ASPE names
@@ -1390,7 +1395,7 @@ cleaning_ref_length_type_aspe <- function(
 clean_fish_batch <- function(
   fish_batch = get_fish_batch_aspe(),
   batch_ref =  cleaning_ref_batch_type_aspe(),
-  species_ref = cleaning_species_ref_aspe(),
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE),
   length_ref = cleaning_ref_length_type_aspe(),
   detail_sampling = cleaning_elementary_sampling()
 ) {

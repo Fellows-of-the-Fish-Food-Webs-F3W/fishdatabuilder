@@ -4,7 +4,11 @@
 \alias{cleaning_species_ref_aspe}
 \title{Standardize species reference data from ASPE database}
 \usage{
-cleaning_species_ref_aspe(species = get_species_aspe(), reference_lmax = NULL)
+cleaning_species_ref_aspe(
+  species = get_species_aspe(),
+  reference_lmax = NULL,
+  warn_missing_fishbase = TRUE
+)
 }
 \arguments{
 \item{species}{A data frame containing species reference data.
@@ -14,6 +18,10 @@ By default uses \code{get_species_aspe()}.}
 Must contain \code{latin_name}, \code{maximal_length_mm}, and
 \code{maximal_length_source}. If \code{NULL}, reference lengths are retrieved from
 FishBase using \code{rfishbase::popchar()}.}
+
+\item{warn_missing_fishbase}{Logical. If \code{TRUE} (default), emit a warning
+when the ASPE maximal length of a taxon cannot be compared with
+FishBase. Set to \code{FALSE} to suppress this warning.}
 }
 \value{
 A data frame containing standardized species reference data:
