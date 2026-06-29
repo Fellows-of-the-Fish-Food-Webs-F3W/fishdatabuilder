@@ -6,6 +6,9 @@
 \usage{
 extract_optional_data(packagename = "fishdatabuilder")
 }
+\arguments{
+\item{packagename}{string. The name of the package using the package cache. Must be a valid directory name. Should not contain spaces. Passed as 'appname' to `rappdirs::user_data_dir`.}
+}
 \value{
 logical vector indicating if the files have been successfully moved
 in the main folder of the package cache

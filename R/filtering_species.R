@@ -178,10 +178,6 @@ check_aspe_fish_species <- function(
 #' The operations are performed in this order to ensure that removed species
 #' are not inadvertently recoded first.
 #'
-#' @note
-#' The function uses tidy evaluation ({{ }}) for flexible column specification,
-#' making it work with different column names across datasets.
-#'
 #' @examples
 #' \dontrun{
 #' # Basic usage with defaults

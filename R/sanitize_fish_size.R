@@ -399,6 +399,8 @@ validate_conversion <- function(ind_measure_fork, batch_fork) {
 #'   }
 #'
 #' @keywords internal
+#'
+#' @importFrom tibble tibble
 #' @noRd
 build_conversion_coefficients <- function(
   species_fork,
@@ -601,7 +603,7 @@ build_conversion_coefficients <- function(
 #' coeffs <- coefficients_fork2total()
 #'
 #' # Apply conversion to a data frame
-#' fish_data <- fish_data %>%
+#' fish_data <- fish_data |>
 #'   dplyr::mutate(
 #'     total_length = fork_length * coefficients_fork2total()[species_code]
 #'   )
@@ -611,7 +613,7 @@ build_conversion_coefficients <- function(
 #'
 #' # Convert only species with available coefficients
 #' species_with_coeff <- names(coefficients_fork2total())
-#' fish_to_convert <- fish_data %>%
+#' fish_to_convert <- fish_data |>
 #'   dplyr::filter(species_code %in% species_with_coeff)
 #' }
 #'
@@ -647,7 +649,9 @@ coefficients_fork2total <- function() {
 #' This function is deprecated. Please use the more focused functions:
 #' \code{\link{convert_fork_to_total}} and \code{\link{remove_impossible_lengths}}.
 #'
-#' @param ... Arguments passed to the new functions
+#' @inheritParams convert_fork_to_total
+#' @inheritParams remove_impossible_lengths
+#'
 #' @export
 sanatize_size_aspe <- function(
   fish_batch = clean_fish_batch(),

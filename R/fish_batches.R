@@ -5,7 +5,7 @@
 #' bounds for truncated normal distributions to ensure biologically realistic sizes.
 #'
 #' @param sanitized Output from `sanitize_batch_data()` (list with fish_batch and ind_measure)
-#'   Must contain `max_length_mm` column in fish_batch (species maximum lengths)
+#'   Must contain `maximal_length_mm` column in fish_batch (species maximum lengths)
 #' @param seed Optional integer for reproducible random number generation
 #' @param verbose Logical. If TRUE, prints progress messages.
 #'
@@ -13,8 +13,10 @@
 #'   \itemize{
 #'     \item `batch_id`: Batch identifier
 #'     \item `species_code`: Species code
-#'     \item `size_mm`: Generated individual fish sizes in millimeters (rounded)
+#'     \item `size_mm`: Individual fish sizes in millimeters (rounded)
+#'     \item `measured`: Logical flag indicating if the fish was directly measured
 #'   }
+#'
 #'
 #' @details
 #' The function processes each batch type differently:
@@ -34,6 +36,10 @@
 #' **Type I (Individual)**: Uses directly measured individuals
 #' 
 #' **Type N (Not measured)**: Single individual from measurements
+#'
+#' The function adds a `measured` column to distinguish between:
+#' - **TRUE**: Directly measured individuals (from original data)
+#' - **FALSE**: Statistically imputed individuals (generated from distributions)
 #'
 #' @note
 #' - The function assumes data has been pre-sanitized by `sanitize_batch_data()`
@@ -97,28 +103,49 @@ generate_individual_sizes <- function(
   # Type G - Fully vectorized
   batch_G <- fish_batch |> dplyr::filter(batch_type == "G")
   if (nrow(batch_G) > 0) {
-    # Generate all samples at once by expanding parameters
-    expanded_idx <- rep(seq_len(nrow(batch_G)), times = batch_G$number)
     n_per_batch <- batch_G$number
-
+    total_n <- sum(n_per_batch)
+ 
+    # Pre-allocate all vectors
+    sizes <- numeric(total_n)
+    measured <- logical(total_n)
+    batch_ids <- integer(total_n)
+    species_codes <- character(total_n)
     # Vectorized generation (still needs per-row but faster than mapply)
-    sizes <- numeric(sum(n_per_batch))
     pos <- 1
     for (i in seq_len(nrow(batch_G))) {
-      n <- n_per_batch[i]
-      sizes[pos:(pos + n - 1)] <- generate_dist_from_min_max(
-        n = n,
-        max_length = batch_G$maximal_length_mm[i],
-        min = batch_G$min_length[i],
-        max = batch_G$max_length[i]
+      n_total <- n_per_batch[i]
+      n_imputed <- n_total - 2
+
+      idx_range <- pos:(pos + n_total - 1)
+
+      # Assign batch metadata (same for all fish in this batch)
+      batch_ids[idx_range] <- batch_G$batch_id[i]
+      species_codes[idx_range] <- batch_G$species_code[i]
+
+      # Fill measured flag (direct assignment without rep)
+      measured[idx_range] <- FALSE  # Default to FALSE for all
+      measured[pos:(pos + 1)] <- TRUE          # First and second are min and max (measured)
+      
+      # Fill sizes
+      sizes[idx_range] <- c(
+        batch_G$min_length[i], # Min (measured)
+        batch_G$max_length[i], # Max (measured)
+        generate_dist_from_min_max( # Imputed (non-measured)
+          n = n_imputed,
+          max_length = batch_G$maximal_length_mm[i],
+          min = batch_G$min_length[i],
+          max = batch_G$max_length[i]
+        )
       )
-      pos <- pos + n
+      pos <- pos + n_total
     }
 
     results[["G"]] <- data.frame(
-      batch_id = rep(batch_G$batch_id, times = batch_G$number),
-      species_code = rep(batch_G$species_code, times = batch_G$number),
+      batch_id = batch_ids,
+      species_code = species_codes,
       size_mm = round(sizes),
+      measured = measured,
       stringsAsFactors = FALSE
     )
   }
@@ -133,6 +160,8 @@ generate_individual_sizes <- function(
       dplyr::summarise(
         mean_size = mean(size, na.rm = TRUE),
         sd_size = stats::sd(size, na.rm = TRUE),
+        measured_sizes = list(size),
+        n_measured = dplyr::n(),
         .groups = "drop"
       )
 
@@ -140,26 +169,50 @@ generate_individual_sizes <- function(
     batch_SL <- batch_SL |>
       dplyr::left_join(sl_summary, by = "batch_id")
 
-    # Generate samples
-    expanded_idx <- rep(seq_len(nrow(batch_SL)), times = batch_SL$number)
+    n_per_batch <- batch_SL$number
+    total_n <- sum(n_per_batch)
 
-    sizes <- numeric(sum(batch_SL$number))
+    # Pre-allocate vectors
+    batch_ids <- integer(total_n)
+    species_codes <- character(total_n)
+    sizes <- numeric(total_n)
+    measured <- logical(total_n)
+
+    # Loop over batches
     pos <- 1
     for (i in seq_len(nrow(batch_SL))) {
-      n <- batch_SL$number[i]
-      sizes[pos:(pos + n - 1)] <- generate_dist_from_sample(
-        n = n,
+      n_total <- n_per_batch[i]
+      n_measured <- batch_SL$n_measured[i]
+      idx_range <- pos:(pos + n_total - 1)
+      
+      # Fill batch metadata
+      batch_ids[idx_range] <- batch_SL$batch_id[i]
+      species_codes[idx_range] <- batch_SL$species_code[i]
+      
+      # Fill measured flag
+      measured[idx_range] <- FALSE  # Default to FALSE
+      measured[pos:(pos + n_measured - 1)] <- TRUE  # First n_measured are TRUE
+
+
+      n_imputed <- n_total - n_measured
+
+      sizes[pos:(pos + n_total - 1)] <- c(
+        batch_SL$measured_sizes[[i]],
+        generate_dist_from_sample(
+        n = n_imputed,
         max_length = batch_SL$maximal_length_mm[i],
         mean = batch_SL$mean_size[i],
         sd = batch_SL$sd_size[i]
+        )
       )
-      pos <- pos + n
+      pos <- pos + n_total
     }
 
     results[["SL"]] <- data.frame(
-      batch_id = rep(batch_SL$batch_id, times = batch_SL$number),
-      species_code = rep(batch_SL$species_code, times = batch_SL$number),
+      batch_id = batch_ids,
+      species_code = species_codes,
       size_mm = round(sizes),
+      measured = measured,
       stringsAsFactors = FALSE
     )
   }
@@ -176,6 +229,7 @@ generate_individual_sizes <- function(
       batch_id = i_measurements$batch_id,
       species_code = rep(batch_I$species_code, times = batch_I$number),
       size_mm = round(i_measurements$size),
+      measured = TRUE,
       stringsAsFactors = FALSE
     )
   }
@@ -192,16 +246,39 @@ generate_individual_sizes <- function(
       batch_id = n_measurements$batch_id,
       species_code = batch_N$species_code[match(n_measurements$batch_id, batch_N$batch_id)],
       size_mm = round(n_measurements$size),
+      measured = TRUE,
       stringsAsFactors = FALSE
     )
   }
 
   final_result <- dplyr::bind_rows(results)
+  if (length(results) == 0) {
+    final_result <- final_result |>
+      dplyr::mutate(
+        batch_id = NA,
+        species_code = NA,
+        size_mm = NA
+      )
+  }
+
+  final_result <- dplyr::left_join(
+    final_result,
+    fish_batch |>
+      dplyr::select(batch_id, operation_id),
+    by = join_by(batch_id)
+  ) |>
+    dplyr::relocate(operation_id)
+
 
   if (verbose) {
     end_time <- Sys.time()
-    message("Generated ", nrow(final_result), " records in ", 
-            round(end_time - start_time, 2), " seconds")
+    n_measured <- sum(final_result$measured)
+    n_imputed <- sum(!final_result$measured)
+    message("\n=== Generation Summary ===")
+    message("Generated ", nrow(final_result), " individual size records")
+    message("  - Measured: ", n_measured, " (", round(100 * n_measured / nrow(final_result), 1), "%)")
+    message("  - Imputed: ", n_imputed, " (", round(100 * n_imputed / nrow(final_result), 1), "%)")
+    message("  - Time elapsed: ", round(end_time - start_time, 2), " seconds")
   }
 
   final_result
@@ -254,6 +331,7 @@ generate_dist_from_sample <- function(n, max_length, mean, sd) {
 #' @param ind_measure A data frame containing individual fish measurements 
 #'   (from `clean_individual_measurement_aspe()`).
 #'   Expected columns: `batch_id`, `size`
+#' @inheritParams remove_impossible_lengths species_ref
 #' @param min_individuals_G Integer. Minimum number of individuals required for
 #'   type "G" batches to generate reliable distributions. Default is 5.
 #' @param min_individuals_SL Integer. Minimum number of measured individuals required
@@ -268,17 +346,29 @@ generate_dist_from_sample <- function(n, max_length, mean, sd) {
 #'     \item `validation_issues`: Data frame with specific validation problems
 #'   }
 #'
-#' @note
+#' @details
 #' The function performs the following validations:
 #' \itemize{
 #'   \item Removes measurements without matching batch IDs
 #'   \item Filters invalid batch types (only G, S/L, I, N are valid)
 #'   \item Removes batches with invalid or missing fish counts (number <= 0 or NA)
-#'   \item For type G: validates min/max are not NA, min_length <= max_length, 
+#'   \item For type G: validates min/max are not NA, min_length <= max_length,
 #'         and sufficient sample size (>= min_individuals_G)
-#'   \item For type S/L: ensures at least min_individuals_SL measured individuals
+#'   \item For type S/L:
+#'     \itemize{
+#'       \item Ensures at least `min_individuals_SL` measured individuals
+#'       \item **Automatically corrects** batch counts when measured individuals exceed
+#'             recorded batch size (updates `number` to match measured count)
+#'     }
 #'   \item For types I and N: verifies measured count matches batch count
 #' }
+#'
+#' @note
+#' - For S/L batches, when measured individuals exceed the recorded batch count,
+#'   the batch `number` is **updated** rather than removed. This prevents data loss
+#'   while flagging the issue in `validation_issues`.
+#' - Batches with insufficient measured individuals (`< min_individuals_SL`) are
+#'   **removed** as they cannot generate reliable distributions.
 #'
 #' @examples
 #' \dontrun{
@@ -516,10 +606,31 @@ sanitize_batch_data <- function(
           stringsAsFactors = FALSE
         ))
       }
-
-      fish_batch <- fish_batch |>
-        dplyr::filter(!(batch_type == "S/L" & batch_id %in% low_measured$batch_id))
     }
+
+    wrong_count <- batch_SL |>
+      dplyr::left_join(measured_counts, by = "batch_id") |>
+      dplyr::filter(is.na(n_measured) | n_measured > number)
+
+    if (nrow(wrong_count) > 0) {
+      validation_issues <- rbind(validation_issues, data.frame(
+        batch_id = wrong_count$batch_id,
+        batch_type = "S/L",
+        issue = paste("Measured individual number > total number recorded in batch"),
+        stringsAsFactors = FALSE
+      ))
+
+      if (verbose) {
+        warning("corrected batch counts for batch_id: ",
+          paste(wrong_count$batch_id, collapse = ", "),
+          " (measured > recorded)", call. = FALSE)
+      }
+
+      fish_batch[fish_batch$batch_id %in% wrong_count$batch_id, ]$number <- as.integer(wrong_count$n_measured)
+    }
+
+    fish_batch <- fish_batch |>
+      dplyr::filter(!(batch_type == "S/L" & batch_id %in% low_measured$batch_id))
   }
 
   ## Type I and N validation
@@ -595,352 +706,3 @@ sanitize_batch_data <- function(
 }
 
 
-#' size from batch (AFB)
-#' 
-#' @param batch data.frame
-#' @inheritParams gen_fish_from_batch
-get_size_from_batch <- function(
-  batch = NULL, id_var = NULL, batch_type_var = NULL, nb_var = NULL,
-  min_var = NULL, max_var = NULL, species = NULL,
-  measure = NULL, size_var = NULL,
-  future_enabled = FALSE, ...){
-
-  id_var <- rlang::enquo(id_var)
-  id_var_chr <- rlang::quo_name(id_var)
-  batch_type_var <- rlang::enquo(batch_type_var)
-  batch_type_var_chr <- rlang::quo_name(batch_type_var)
-  nb_var <- rlang::enquo(nb_var)
-  nb_var_chr <- rlang::quo_name(nb_var)
-  species <- rlang::enquo(species)
-  species_var_chr <- rlang::quo_name(species)
-  max_var <- rlang::enquo(max_var)
-  max_var_chr <- rlang::quo_name(max_var)
-  min_var <- rlang::enquo(min_var)
-  min_var_chr <- rlang::quo_name(min_var)
-
-  size_var <- rlang::enquo(size_var)
-  size_var_chr <- rlang::quo_name(size_var)
-
-  requireNamespace("truncdist", quietly = TRUE)
-
-  # Check batch columns
-  required_obj_cols <- c(
-    id_var_chr, batch_type_var_chr, nb_var_chr,
-    max_var_chr, min_var_chr, species_var_chr
-  )
-  missing_obj_cols <- setdiff(required_obj_cols, names(batch))
-  if (length(missing_obj_cols) > 0) {
-    stop(
-      "`batch` is missing required columns: ",
-      paste(missing_obj_cols, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  # Check measure columns
-  required_obj_cols <- c(
-    id_var_chr, size_var_chr
-  )
-  missing_obj_cols <- setdiff(required_obj_cols, names(measure))
-  if (length(missing_obj_cols) > 0) {
-    stop(
-      "`measure` is missing required columns: ",
-      paste(missing_obj_cols, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  # Filter surnumerous variable:
-  batch <- batch %>%
-    dplyr::select(!!id_var, !!batch_type_var, !!nb_var, !!species, !!min_var, !!max_var)
-  measure <- measure %>%
-    dplyr::select(!!id_var, !!size_var)
-
-  # Filter surnumerous id in measure:
-  if (any(! measure[[id_var_chr]] %in% batch[[id_var_chr]])) {
-    measure <- measure %>%
-      dplyr::filter(!!id_var %in% batch[[id_var_chr]])
-    message("surnumerous batch in measure were removed")
-  }
-
-  # Filter incorrect batch:
-  diff_batch_type <- c("G", "S/L", "N", "I")
-  if (any(is.na(batch[[batch_type_var_chr]]) |
-      any(!batch[[batch_type_var_chr]] %in% diff_batch_type))
-    ) {
-    batch <- batch %>%
-      dplyr::filter(! is.na(!!batch_type_var) & !!batch_type_var %in% diff_batch_type)
-    message("NA batch id and batch type has been filtered")
-  }
-
-  # Filter if effectif is not present:
-  if (any(is.na(batch[[nb_var_chr]])) | any(!batch[[nb_var_chr]] > 0)) {
-    batch <- batch %>%
-      dplyr::filter( (!is.na(!!nb_var)) & !!nb_var > 0)
-    message("Incorrect effectif has been filtered")
-  }
-
-  na_G <- batch %>%
-    dplyr::filter(!!batch_type_var == "G" & (is.na(!!min_var) | is.na(!!max_var)))
-  incorrect_G <-  batch %>%
-    dplyr::filter(!!batch_type_var == "G" & !!min_var >= !!max_var)
-  low_n_G <-  batch %>%
-    dplyr::filter(!!batch_type_var == "G" & !!nb_var < 5)
-
-  if (any(c(nrow(na_G), nrow(incorrect_G)) != 0)) {
-    G_bad_id <- c(na_G[[id_var_chr]], incorrect_G[[id_var_chr]], low_n_G[[id_var_chr]])
-
-    batch <- batch %>%
-      dplyr::filter(!( !!id_var %in% G_bad_id))
-    message("incorrect batch G have been filtered")
-  }
-
-
-  gen_fish_from_batch <- compiler::cmpfun(gen_fish_from_batch)
-  batch$size_mm <- parallel::mcMap(gen_fish_from_batch,
-	  id = batch[[id_var_chr]],
-	  type = batch[[batch_type_var_chr]],
-	  min_size = batch[[min_var_chr]],
-	  max_size = batch[[max_var_chr]],
-	  nb = batch[[nb_var_chr]],
-	  MoreArgs = list(
-	    ind_measure = measure,
-	    ind_size = size_var_chr,
-      id_var = id_var
-	  )
-	)
-
-  # Filter and extract:
-  output <- batch %>%
-  dplyr::select(!!id_var, !!species, size_mm)
-
-  output
-}
-
-#' Generate fish from fishing batch (AFB) 
-#'
-#'
-#' @param id int id of the batch  
-#' @param type character type of the batch (N, G, S/L, I)
-#' @param min_size dbl minimum size of the batch 
-#' @param max_size dbl maximum size of the batch 
-#' @param nb int effectif of the batch 
-#' @param ind_measure data.frame individual measurement of the fish 
-#' @param ind_size variable name for the size in ind_measure 
-#'
-#' @details From fishing batch, we build generate the fish size individual
-#'
-#' @export
-gen_fish_from_batch <- function (
-  id = NULL, type = NULL,  min_size = NULL, max_size = NULL, nb = NULL,
-  ind_measure = NULL, id_var = NULL, ind_size = NULL, ...) {
-
-  # Promise:
-  ind_size <- rlang::enquo(ind_size)
-  id_var <- rlang::enquo(id_var)
-
-  # Build by batch
-  if (type == "G") {
-    if (any(is.na(c(min_size, max_size)))) {
-      warning_msg <- paste(
-	"NA min_size or max_size in batch of type G number ",id,
-	", batch put as NA\n", sep = ""
-      )
-      warning(warning_msg)
-      batch <- rep(NA, nb)
-    } else if (min_size >= max_size) {
-      warning_msg <- paste(
-    "min_size >= max_size in batch of type G number ",id,", batch put as NA\n",
-    sep = "")
-      warning(warning_msg)
-      batch <- NA
-    } else if (nb < 5) {
-      warning_msg <- paste(
-      "# of obs is inferior to 10 (actual # is,", length(nb),
-      ") in batch type G number", id,".\n", "batch put as NA\n", sep = "")
-      warning(warning_msg)
-      batch <- rep(NA, nb)
-    } else {
-      avg <- (min_size + max_size) / 2
-      sdt <- (max_size - min_size) * 1 / 4
-
-      batch <- truncdist::rtrunc(n = nb, spec = "norm", a = min_size, b = max_size,
-	mean = avg, sd = sdt)
-      stopifnot(length(batch) == nb)
-    }
-  } else if (type == "S/L") {
-    #Get size:
-    mask <- which(ind_measure[[rlang::quo_name(id_var)]] == id)
-    size <- ind_measure[mask, ][[rlang::quo_name(ind_size)]]
-    size <- na.omit(size)
-    stopifnot(is.na(size) | nrow(size) == 0)
-    # Sanity check:
-    if (length(size) < 10) {
-      warning_msg <- paste(
-      "# of obs is inferior to 10 (actual # is,", length(size),
-      ") in batch type S/L number ", id,".\n", "batch put as NA\n", sep = "")
-      warning(warning_msg)
-      batch <- rep(NA, nb)
-    } else {
-    #Distribution parameters:
-    avg <- mean(size)
-    sdt <- sd(size)
-
-    # Sample inside the 90% of the distribution probability:
-    p05 <- quantile(size, 0.05)
-    p95 <- quantile(size, 0.95)
-
-    # Error if p05 >= p95
-    if (p05 >= p95) {
-      warning_msg <- paste(
-      "p05 is equal or greater than p95 (p05 = ", p05, ", P95 = ", p95,
-      ") in batch type S/L number ", id,".\n", "batch put as NA\n", sep = "")
-      warning(warning_msg)
-      batch <- rep(NA, nb)
-    } else {
-      batch <- truncdist::rtrunc(n = nb, spec = "norm", a = p05, b = p95,
-	mean = avg, sd = sdt)
-    }
-    }
-  } else if (type == "I") {
-    # All individuals have been measured:
-    mask <- which(ind_measure[[rlang::quo_name(id_var)]] == id)
-    batch <- ind_measure[mask, ][[rlang::quo_name(ind_size)]]
-    stopifnot(length(batch) == nb)
-  } else if (type == "N") {
-    # One big individual:
-    mask <- which(ind_measure[[rlang::quo_name(id_var)]] == id)
-    batch <- ind_measure[mask, ][[rlang::quo_name(ind_size)]]
-    stopifnot(length(batch) == 1)
-  }
-  # Round to milimeters:
-  round(batch)
-}
-
-#' Main function for batch check
-#'
-#' return a data.frame with batch id, species and the  
-#'
-#' @export
-get_check_batch <- function(
-  batch = NULL, id_var = NULL, batch_type_var = NULL, nb_var = NULL,
-  min_var = NULL, max_var = NULL, species = NULL,
-  measure = NULL, size_var = NULL,
-  future_enabled = FALSE, ...){
-
-  id_var <- rlang::enquo(id_var)
-  id_var_chr <- rlang::quo_name(id_var)
-  batch_type_var <- rlang::enquo(batch_type_var)
-  batch_type_var_chr <- rlang::quo_name(batch_type_var)
-  nb_var <- rlang::enquo(nb_var)
-  nb_var_chr <- rlang::quo_name(nb_var)
-  species <- rlang::enquo(species)
-  max_var <- rlang::enquo(max_var)
-  min_var <- rlang::enquo(min_var)
-
-  size_var <- rlang::enquo(size_var)
-  size_var_chr <- rlang::quo_name(size_var)
-
-  # Filter surnumerous variable:
-  batch <- batch %>%
-    dplyr::select(!!id_var, !!batch_type_var, !!nb_var, !!species, !!min_var, !!max_var)
-  measure <- measure %>%
-    dplyr::select(!!id_var, !!size_var)
-
-  # Filter surnumerous id in measure:
-  if (any(! measure[[id_var_chr]] %in% batch[[id_var_chr]])) {
-  measure <- measure %>%
-      dplyr::filter(!!id_var %in% batch[[id_var_chr]])
-    message("surnumerous batch in measure were removed")
-  }
-
-  check_batch <- compiler::cmpfun(check_batch)
-  output <- batch %>%
-    dplyr::mutate(
-      size_mm =
-      parallel::mcMap(check_batch,
-	  id = !!id_var,
-	  type = !!batch_type_var,
-	  min_size = !!min_var,
-	  max_size = !!max_var,
-	  nb = !!nb_var,
-	  MoreArgs = list(
-	    ind_measure = measure,
-	    ind_size = size_var_chr
-	  )
-	)
-      ) %>%
-  dplyr::select(!!id_var, !!species, size_mm) %>%
-  tidyr::unnest(size_mm)
-
-  output
-}
-
-#' Fish batch checker (AFB) 
-#'
-#' Check the quality of the batch 
-#'
-#' @inheritParams gen_fish_from_batch
-#'
-#' @details The function check if there are missing datas that can make the batch
-#' invalid. The check are specific of each batch type. For batch "G", we check if
-#' min or max size are missing, if min >= max size and the number of fish in the
-#' batch is superior or equal to 10. For batch "S/L", we check if the number of measured
-#' fishes is superior to 20 (standard protocol propose 30 be measured). In batch
-#' "I", we check that the number of measured fishes correspond to the number of
-#' fish recorded in the batch. For batch "N", we check if the number of measured
-#' fish is equal to one.    
-#' 
-#' @return a list. Each element of the list correspond to a batch of a fishing
-#' operation. If there is no problem in the batch, it returns NA. In the opposite
-#' case, the function returns a character containing the type of error.
-#' @export
-check_batch <- function (
-  id = NULL, type = NULL,  min_size = NULL, max_size = NULL, nb = NULL,
-  ind_measure = NULL, ind_id = NULL, ind_size = NULL, ...) {
-
-
-  # Build by batch
-  if (type == "G") {
-    if (any(is.na(c(min_size, max_size)))) {
-      status <- paste("min_size or/and max_size is NA")
-    } else if (min_size >= max_size) {
-      status <- paste("min_size >= max_size")
-    } else if (nb < 10) {
-      status <- paste("# < 10")
-    } else {
-      status <- "good"
-    }
-  } else if (type == "S/L") {
-    #Get size:
-    mask <- which(ind_measure[[ind_id]] == id)
-    size <- ind_measure[mask, ][[ind_size]]
-    size <- na.omit(size)
-    stopifnot(is.na(size) | nrow(size) == 0)
-    # Sanity check:
-    if (length(size) < 20) {
-      status <- paste("# < 20 (excluding NA)")
-    } else {
-      status <- "good"
-    }
-  } else if (type == "I") {
-    # All individuals have been measured:
-    mask <- which(ind_measure[[ind_id]] == id)
-    batch <- ind_measure[mask, ][[ind_size]]
-    if (length(batch) == nb) {
-      status <- "good"
-    } else {
-      status <- "# of measured fish do not match sample size"
-    }
-  } else if (type == "N") {
-    # One big individual:
-    mask <- which(ind_measure[[ind_id]] == id)
-    batch <- ind_measure[mask, ][[ind_size]]
-    if (length(batch) == nb) {
-      status <- "good"
-    } else {
-      status <- "# of measured fish do not match sample size"
-    }
-  }
-  status 
-}

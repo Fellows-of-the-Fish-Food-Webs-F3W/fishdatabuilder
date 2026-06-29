@@ -24,18 +24,20 @@ devtools::load_all()
 document()
 test()
 build_vignettes()
+check(vignettes = FALSE)
 ```
 
 ```r
 #| id: proto-function
 list_optional_files()
 
-op <- get_raw_operation_aspe() |> as_tibble()
+raw_op <- get_raw_operation_aspe() |> as_tibble()
 ref_objective <- get_ref_objective_operation_aspe() |> as_tibble()
 ref_protocol <- get_ref_protocol_operation_aspe() |> as_tibble()
 op_objective <- get_objective_operation_aspe() |> as_tibble()
 sampling_point <- get_sampling_point_aspe() |> as_tibble()
 op_description <- get_description_operation_aspe() |> as_tibble()
+op_env_raw <- get_environmental_data_operation_aspe() |> as_tibble()
 ref_isolation <- get_ref_isolation_operation_aspe() |> as_tibble()
 raw_ref_species <- get_species_aspe() |> as_tibble()
 
@@ -54,6 +56,159 @@ raw_fish_batch <- get_fish_batch_aspe() |> as_tibble()
 raw_individual_measurement <- get_individual_measurement_aspe() |> as_tibble()
 raw_ref_length <- get_ref_type_length_aspe() |> as_tibble()
 ref_length <- cleaning_ref_length_type_aspe() |> as_tibble()
+```
+
+```{r}
+raw_station <- get_raw_station_aspe() |> as_tibble()
+
+load_all()
+station <- clean_station_aspe(
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
+  crs_to = 4326
+  ) |>
+  as_tibble()
+
+library(sf)
+station_hubeau_poisson_raw <- readr::read_csv2(
+  "~/Documents/work/riversea/data/river/station_HUBEAU_poisson.csv"
+) |>
+  mutate(across(contains("epsg"), as.integer))
+station_hubeau_poisson_raw
+colnames(station_hubeau_poisson_raw)
+station_hubeau_poisson_coord_station <-  station_hubeau_poisson_raw |>
+  st_as_sf(
+    coords = c("coordonnee_x_station", "coordonnee_y_station"),
+    # LAMBERT 93: 2154
+    crs = unique(station_hubeau_poisson_raw$code_epsg_projection_station)
+  )
+station_hubeau_poisson_coord_pt_prevelement <- station_hubeau_poisson_raw |>
+  st_as_sf(
+    coords = c("coordonnee_x_point_prelevement", "coordonnee_y_point_prelevement"),
+    # LAMBERT 93: 2154
+    crs = unique(station_hubeau_poisson_raw$code_epsg_projection_point_prelevement)
+  )
+station <- clean_station_aspe(
+  station = get_raw_station_aspe(),
+  ref_coordinates = get_raw_ref_coordinates_station_aspe(),
+  crs_to = unique(station_hubeau_poisson_raw$code_epsg_projection_station)
+  ) |>
+  as_tibble()
+station_aspe <- station |>
+  filter(site_id %in% unique(filtered_sampling$operation$site_id)) |>
+  st_as_sf(
+    coords = c("x", "y"),
+    crs = unique(station_hubeau_poisson_raw$code_epsg_projection_station)
+  )
+
+station_hubeau_poisson |>
+  filter(!code_station %in% station_aspe$sandre_code)
+station_aspe |>
+  filter(!sandre_code %in% station_hubeau_poisson_raw$code_station)
+
+library(mapview)
+mapview::mapview(list(
+  station_hubeau_poisson_coord_pt_prevelement,
+  station_hubeau_poisson_coord_station,
+  station_aspe), col.regions = c("green", "black", "blue"))
+
+plot(st_geometry(station_hubeau_poisson_coord_pt_prevelement))
+points(st_geometry(station_aspe))
+
+fishing_operation = filtered_sampling$operation
+save(
+  station_aspe, fishing_operation,
+  file = here::here("station_operation_filtered_aspe_ismael.rda")
+)
+
+sampling_point_hubeau_poisson <- sampling_point |> 
+  filter(pop_id %in% unique(station_hubeau_poisson_raw$code_point_prelevement_aspe))
+# Check that raw op have all the code_point_prelevement_aspe:
+ele_sampling <- cleaning_elementary_sampling()  |> as_tibble()
+raw_op |>
+  filter(ope_pop_id %in% unique(station_hubeau_poisson_raw$code_point_prelevement_aspe))
+
+ele_sampling |>
+  filter(prelevement_id %in% unique(station_hubeau_poisson_raw$code_point_prelevement_aspe))
+
+station_aspe %>%
+  filter(!site_id %in% unique(sampling_point_hubeau_poisson$pop_sta_id))
+
+station_operation_filtered_aspe_ismael$fishing_operation |>
+  filter(operation_id %in% unique(station_hubeau_poisson_raw$code_point_prelevement_aspe))
+colnames(sampling_point)
+colnames(sampling_point)
+station_hubeau_poisson_raw |> 
+  select(code_point_prelevement_aspe)
+
+## Keep the sandre code
+## Add hydrographic_basin (aspe_)
+read_raw_data(file_name = "ref_bassin.csv")
+#op_env_raw
+```
+
+```{r}
+remotes::install_github("inrae/hubeau")
+library(mapview)
+library(sf)
+library(dplyr)
+library(hubeau)
+station_hubeau_poisson_raw <- hubeau::get_poisson_stations()
+# station_hubeau_poisson_raw <- readr::read_csv2(
+#   "~/Documents/work/riversea/data/river/station_HUBEAU_poisson.csv"
+# ) |>
+#   mutate(across(contains("epsg"), as.integer))
+station_hubeau_poisson_raw
+colnames(station_hubeau_poisson_raw)
+
+load(file = here::here("station_operation_filtered_aspe_ismael.rda"))
+station_aspe
+fishing_operation
+
+## Make spatial object with either station coord or prelevement one
+station_hubeau_poisson_coord_station <- station_hubeau_poisson_raw |>
+  filter(!(is.na(coordonnee_x_station) | is.na(coordonnee_y_station)))
+station_hubeau_poisson_coord_station <- station_hubeau_poisson_coord_station |>
+  st_as_sf(
+    coords = c("coordonnee_x_station", "coordonnee_y_station"),
+    # LAMBERT 93: 2154
+    crs = unique(station_hubeau_poisson_coord_station$code_epsg_projection_station)
+  )
+station_hubeau_poisson_coord_pt_prevelement <- station_hubeau_poisson_raw |>
+  st_as_sf(
+    coords = c("coordonnee_x_point_prelevement", "coordonnee_y_point_prelevement"),
+    # LAMBERT 93: 2154
+    crs = unique(station_hubeau_poisson_raw$code_epsg_projection_point_prelevement)
+  )
+
+station_aspe_in_hubeau_sandre <- station_aspe |>
+  filter(sandre_code %in% unique(station_hubeau_poisson_raw$code_station))
+
+mapview::mapview(list(
+  station_hubeau_poisson_coord_station,
+  station_aspe,
+  station_aspe_in_hubeau_sandre
+),
+  col.regions = c("black", "blue", "green"))
+
+```
+
+```{r}
+station_operation_filtered_aspe_ismael
+
+```
+
+
+
+
+
+```{r}
+op_description <- clean_description_operation_aspe(
+  op_description = get_description_operation_aspe(),
+  ref_isolation = get_ref_isolation_operation_aspe(),
+  ref_prospection = get_ref_prospection_method_operation_aspe()
+  ) |>
+  as_tibble()
 ```
 
 
@@ -92,7 +247,7 @@ filtered_sampling <- filter_operation_batch_measure(
   fish_batch = fish_batch,
   ind_measure = ind_measure
 )
-
+unique(filtered_sampling$operation$site_id)
 ```
 
 ## Sanitize species code and check there are alright
@@ -140,6 +295,13 @@ sanitized_length <- remove_impossible_lengths(
   species_ref = species,
   remove_outliers = TRUE
 )
+sanitized_length$outlier_summary |>
+  arrange(desc(n_outliers))
+sanitized_length$outliers |>
+  filter(species_code == "HOT") |>
+  select(-c(operation_id:measure_id)) |>
+  arrange(desc(size)) |>
+  print(n = 200)
 ```
 
 ```{r}
@@ -167,5 +329,42 @@ sanitized$fish_batch |>
 ## Generate fish size from batch
 
 ```{r}
-ti <- generate_individual_sizes_vectorized(sanitized, verbose = TRUE)
+fish_individual_size <- generate_individual_sizes(sanitized, verbose = TRUE)
+
+fish_individual_size |>
+  filter(species_code == "CHP")
+readr::write_csv(
+  x = fish_individual_size,
+  file = here::here("data-raw", "fish_individual_size.csv")
+)
+
+fish <- readr::read_csv(
+  here::here("data-raw", "fish_individual_size.csv")
+)
 ```
+
+## length-weight conversion
+
+```{r}
+
+species <- cleaning_species_ref_aspe()
+fish_individual_size <- readr::read_csv(
+  file = here::here("data-raw", "fish_individual_size.csv"),
+  col_types = "ici"
+)
+
+result <- convert_length_to_weight(
+  fish_data = fish_individual_size,
+  species_ref = species,
+  verbose = TRUE
+ )
+
+```
+
+##  Covariate tables
+
+```{r}
+station
+```
+
+
