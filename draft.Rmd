@@ -12,7 +12,6 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(devtools)
-devtools::load_all()
 
 # optional
 library(tibble)
@@ -20,7 +19,7 @@ library(tibble)
 
 ```r
 #| load-pkg
-devtools::load_all()
+load_all()
 document()
 test()
 build_vignettes()
