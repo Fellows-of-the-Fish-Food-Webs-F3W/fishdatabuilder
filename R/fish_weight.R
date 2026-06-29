@@ -206,7 +206,8 @@ convert_length_to_weight <- function(
       a = rep(default_coefficients["a"], times = n_missing_species),
       b = rep(default_coefficients["b"], times = n_missing_species),
       source = "default",
-      stringsAsFactors = FALSE
+      stringsAsFactors = FALSE,
+      row.names = NULL
     )
     all_coeffs <- dplyr::bind_rows(all_coeffs, default_coeffs)
   }

@@ -46,10 +46,23 @@ use_test("generate-individual-size")
 use_test("compute-fish-weight")
 
 
-usethis::use_package("mockery", "Suggests")
+#usethis::use_package("mockery", "Suggests")
 usethis::use_package("covr", "Suggests")
 usethis::use_package("truncdist", "Suggests")
 
 usethis::use_vignette("getting_started.qmd", "Getting started")
 usethis::use_build_ignore("vignettes/*_files")
 usethis::use_git_ignore("*_files", "vignettes")
+
+# Cleaning dependencies 
+pkg_dep_to_add <- c('dplyr', 'lubridate', 'purrr', 'rfishbase',
+  'rlang', 'sf', 'stringr', 'tidyr', 'truncdist', 'tibble')
+purrr::walk(
+  pkg_dep_to_add,
+  \(x) use_package(x, type = "Imports", min_version = NULL)
+)
+
+usethis::use_package_doc()
+usethis::use_github_action("test-coverage")
+
+

@@ -25,9 +25,13 @@ included for API consistency but not used in the current implementation.}
 will be included in the exclusion list. If \code{TRUE}, restoration objectives
 will not be excluded.}
 
+\item{restoration_objective}{Character vector containing the restoration objectives to exclude.}
+
 \item{population_monitoring}{Logical. If \code{FALSE} (default), population monitoring
 objectives will be included in the exclusion list. If \code{TRUE}, population
 monitoring objectives will not be excluded.}
+
+\item{population_objective}{Character vector containing the population monitoring objectives to exclude.}
 
 \item{keep_NA}{Logical. If \code{FALSE} (default), \code{NA} values will be included in
 the exclusion list. If \code{TRUE}, \code{NA} values will not be excluded.}
@@ -82,7 +86,7 @@ exclude_none <- vec_op_objective_to_exclude(
 )
 
 # Use in filtering operations
-clean_ops <- operations \%>\%
+clean_ops <- operations |>
   filter(!objective \%in\% vec_op_objective_to_exclude())
 }
 

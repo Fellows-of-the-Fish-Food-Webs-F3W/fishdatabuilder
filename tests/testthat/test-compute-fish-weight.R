@@ -178,9 +178,11 @@ test_that("convert_length_to_weight respects verbose parameter", {
   mock_fb <- mock_fishbase_data()
   
   # Verbose should produce messages
-  expect_message(
-    convert_length_to_weight(td$fish_data, td$species_ref, mock_fb, verbose = TRUE),
-    "Processing.*unique species"
+  suppressMessages( 
+    expect_message(
+      convert_length_to_weight(td$fish_data, td$species_ref, mock_fb, verbose = TRUE),
+      "Processing.*unique species"
+    )
   )
   
   # Silent should produce no messages
