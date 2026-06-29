@@ -489,3 +489,40 @@ test_that("sanitize_batch_data correctly handles min_length == max_length", {
   expect_true(1 %in% result$fish_batch$batch_id)
   expect_false(any(result$validation_issues$issue == "min_length > max_length"))
 })
+
+test_that("S/L batches with measurements > recorded count are corrected", {
+  # Create type S/L batch with 8 measurements
+  fish_batch_SL <- data.frame(
+    batch_id = 1,
+    batch_type = "S/L",
+    number = 10,
+    species_code = "PER",
+    min_length = NA,
+    max_length = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  ind_measure_SL <- data.frame(
+    batch_id = rep(1, 15),
+    size = 100:114,
+    stringsAsFactors = FALSE
+  )
+  
+  # With strict threshold (min_individuals_SL = 10) - should be removed
+  result <- sanitize_batch_data(
+    fish_batch = fish_batch_SL,
+    ind_measure = ind_measure_SL,
+    species_ref = data.frame(species_code = "PER", maximal_length_mm = 300),
+    min_individuals_SL = 10,
+    verbose = FALSE
+  )
+  # Batch should be kept (not removed)
+  expect_equal(nrow(result$fish_batch), 1)
+
+  # Number should be corrected to match measurements (5)
+  expect_equal(result$fish_batch$number, 15)
+
+  # Issue should be logged in validation_issues
+  expect_true(any(grepl("Measured individual number > total", 
+    result$validation_issues$issue)))
+})

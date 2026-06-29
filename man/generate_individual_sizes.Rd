@@ -8,7 +8,7 @@ generate_individual_sizes(sanitized, seed = NULL, verbose = TRUE)
 }
 \arguments{
 \item{sanitized}{Output from \code{sanitize_batch_data()} (list with fish_batch and ind_measure)
-Must contain \code{max_length_mm} column in fish_batch (species maximum lengths)}
+Must contain \code{maximal_length_mm} column in fish_batch (species maximum lengths)}
 
 \item{seed}{Optional integer for reproducible random number generation}
 
@@ -19,7 +19,8 @@ A data frame with columns:
 \itemize{
 \item \code{batch_id}: Batch identifier
 \item \code{species_code}: Species code
-\item \code{size_mm}: Generated individual fish sizes in millimeters (rounded)
+\item \code{size_mm}: Individual fish sizes in millimeters (rounded)
+\item \code{measured}: Logical flag indicating if the fish was directly measured
 }
 }
 \description{
@@ -49,6 +50,12 @@ The function processes each batch type differently:
 \strong{Type I (Individual)}: Uses directly measured individuals
 
 \strong{Type N (Not measured)}: Single individual from measurements
+
+The function adds a \code{measured} column to distinguish between:
+\itemize{
+\item \strong{TRUE}: Directly measured individuals (from original data)
+\item \strong{FALSE}: Statistically imputed individuals (generated from distributions)
+}
 }
 \note{
 \itemize{
