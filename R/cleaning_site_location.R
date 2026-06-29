@@ -103,9 +103,9 @@ clean_station_aspe <- function(
   # remove variable prefix sta_
   station <- dplyr::rename_with(station, ~gsub("sta_", "", .x, fixed = TRUE))
 
-  # Replace column names
-  station <- rename(station,
-    any_of(replacement_station_col()))
+  # Rename column names
+  station <- dplyr::rename(station,
+    dplyr::any_of(replacement_station_col()))
 
 
   required_st_cols <- c("typ_id", "x", "y")
@@ -157,13 +157,16 @@ clean_station_aspe <- function(
       data = purrr::map2(data, typ_code_epsg, convert_crs, crs_to = crs_to)
     ) |>
     dplyr::ungroup() |>
-    tidyr::unnest(cols = data) |>
-    dplyr::select(site_id, geometry)
+    tidyr::unnest(cols = data)
 
   # Convert sf geometry column in X,Y column
   station <- cbind(station, sf::st_coordinates(st_as_sf(station))) |>
     dplyr::select(-geometry) |>
+    # _ is the native pipe placeholder native from R v4.2
     rename_with(.data = _, tolower)
+
+  # Select columns
+  station <- dplyr::select(station, dplyr::any_of(names(replacement_station_col())))
 
   return(station)
 }
@@ -295,6 +298,14 @@ get_sampling_point_aspe <- function(file = "point_prelevement.csv") {
 #' Default file: `"operation_description_peche.csv"`
 #' @export get_description_operation_aspe
 get_description_operation_aspe <- function(file = "operation_description_peche.csv") {
+  read_raw_data(file_name = file)
+}
+
+#' @rdname raw_data_accessors
+#' @details For `get_environmental_data_operation_aspe()`: Retrieves detailed environmental informations about fishing operations.
+#' Default file: `"operation_donnees_environnementales.csv"`
+#' @export get_environmental_data_operation_aspe
+get_environmental_data_operation_aspe <- function(file = "operation_donnees_environnementales.csv") {
   read_raw_data(file_name = file)
 }
 

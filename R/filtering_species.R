@@ -19,7 +19,7 @@
 #'
 #' @details
 #' The validation process occurs in two steps:
-#' 
+#'
 #' **Step 1: Reference table check**
 #' Verifies that all provided species codes exist in the ASPE species reference
 #' table. Missing codes trigger a warning with the problematic codes listed.
@@ -178,10 +178,6 @@ check_aspe_fish_species <- function(
 #' The operations are performed in this order to ensure that removed species
 #' are not inadvertently recoded first.
 #'
-#' @note
-#' The function uses tidy evaluation ({{ }}) for flexible column specification,
-#' making it work with different column names across datasets.
-#'
 #' @examples
 #' \dontrun{
 #' # Basic usage with defaults
@@ -225,7 +221,7 @@ sanitize_species_code <- function(
   if (!species_col %in% names(data)) {
     stop("Column '", species_col, "' not found in data", call. = FALSE)
   }
-  
+ 
   if (!is.character(species_to_remove) && !is.logical(species_to_remove)) {
     stop("`species_to_remove` must be a character or logical vector", call. = FALSE)
   }
@@ -240,7 +236,7 @@ sanitize_species_code <- function(
       {{species_var}},
       species_to_replace
     ))
-  
+ 
   # Optional: Check if any replacements introduced NA or unexpected values
   if (any(is.na(data[[species_col]]))) {
     warning("NA values introduced in species codes after replacement", call. = FALSE)

@@ -65,7 +65,5 @@ custom_descriptions <- clean_description_operation_aspe(
 \item \code{\link[=get_description_operation_aspe]{get_description_operation_aspe()}} for raw data access
 \item \code{\link[=get_ref_isolation_operation_aspe]{get_ref_isolation_operation_aspe()}} for isolation reference data
 \item \code{\link[=get_ref_prospection_method_operation_aspe]{get_ref_prospection_method_operation_aspe()}} for prospection reference data
-\item \code{\link[=replacement_isolation_label]{replacement_isolation_label()}} for isolation type translations
-\item \code{\link[=replacement_prospection_label]{replacement_prospection_label()}} for prospection method translations
 }
 }

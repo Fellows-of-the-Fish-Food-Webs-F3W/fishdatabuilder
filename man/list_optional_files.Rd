@@ -6,6 +6,9 @@
 \usage{
 list_optional_files(packagename = "fishdatabuilder")
 }
+\arguments{
+\item{packagename}{string. The name of the package using the package cache. Must be a valid directory name. Should not contain spaces. Passed as 'appname' to `rappdirs::user_data_dir`.}
+}
 \value{
 vector of strings. The file names available, relative to the package
 cache.

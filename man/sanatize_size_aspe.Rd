@@ -14,7 +14,20 @@ sanatize_size_aspe(
 )
 }
 \arguments{
-\item{...}{Arguments passed to the new functions}
+\item{fish_batch}{A data frame containing fish batch data.}
+
+\item{ind_measure}{A data frame containing individual fish measurements.}
+
+\item{species_ref}{A data frame containing species reference data.}
+
+\item{fishbase_length_length}{Optional data frame of pre-fetched FishBase
+length-length relationships. If \code{NULL}, fetches from FishBase automatically.}
+
+\item{conversion_vector}{Named vector of manual conversion coefficients.
+Default uses \code{coefficients_fork2total()}.}
+
+\item{convert_intercept_cm2mm}{Logical. If \code{TRUE}, converts FishBase intercepts
+from cm to mm. Default is \code{TRUE}.}
 }
 \description{
 This function is deprecated. Please use the more focused functions:

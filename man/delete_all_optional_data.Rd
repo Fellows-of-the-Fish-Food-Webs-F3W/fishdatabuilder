@@ -6,6 +6,9 @@
 \usage{
 delete_all_optional_data(packagename = "fishdatabuilder")
 }
+\arguments{
+\item{packagename}{string. The name of the package using the package cache. Must be a valid directory name. Should not contain spaces. Passed as 'appname' to `rappdirs::user_data_dir`.}
+}
 \value{
 integer. The return value of the unlink() call: 0 for success, 1 for
 failure. See the unlink() documentation for details.

@@ -197,7 +197,7 @@ convert_length_to_weight <- function(
   # Add default coefficients for missing species
   if (length(missing_species) > 0) {
     if (verbose) {
-      message("Using default coefficients for: ", 
+      message("Using default coefficients for: ",
         paste(missing_species, collapse = ", "))
     }
     default_coeffs <- data.frame(
@@ -205,7 +205,8 @@ convert_length_to_weight <- function(
       a = default_coefficients["a"],
       b = default_coefficients["b"],
       source = "default",
-      stringsAsFactors = FALSE
+      stringsAsFactors = FALSE,
+      row.names = NULL
     )
     all_coeffs <- dplyr::bind_rows(all_coeffs, default_coeffs)
   }

@@ -373,17 +373,23 @@ test_that("sanitize_batch_data handles verbose output", {
   test_data <- create_test_batch_data()
 
   # Test with verbose = TRUE
-  expect_message(
-    result <- sanitize_batch_data(
-      fish_batch = test_data$fish_batch,
-      ind_measure = test_data$ind_measure,
-      species_ref = test_data$species_ref,
-      verbose = TRUE,
-      min_individuals_SL = 10,
-      min_individuals_G = 5
-    ),
-    "=== Batch Data Sanitization Summary ==="
+  suppressMessages(
+  suppressMessages(
+    expect_message(
+      result <- sanitize_batch_data(
+        fish_batch = test_data$fish_batch,
+        ind_measure = test_data$ind_measure,
+        species_ref = test_data$species_ref,
+        verbose = TRUE,
+        min_individuals_SL = 10,
+        min_individuals_G = 5
+      ),
+      "=== Batch Data Sanitization Summary ==="
+    )
+    )
   )
+
+
 
   # Test with verbose = FALSE (should not produce messages)
   expect_silent(

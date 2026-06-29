@@ -22,6 +22,9 @@ Expected columns: \code{batch_id}, \code{batch_type}, \code{number}, \code{speci
 (from \code{clean_individual_measurement_aspe()}).
 Expected columns: \code{batch_id}, \code{size}}
 
+\item{species_ref}{A data frame containing species reference data.
+Must contain columns: \code{species_code}, \code{maximal_length_mm}.}
+
 \item{min_individuals_G}{Integer. Minimum number of individuals required for
 type "G" batches to generate reliable distributions. Default is 5.}
 

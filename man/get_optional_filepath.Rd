@@ -11,11 +11,11 @@ get_optional_filepath(
 )
 }
 \arguments{
-\item{filename, }{string. The filename of the file in the package cache.}
+\item{packagename}{string. The name of the package using the package cache. Must be a valid directory name. Should not contain spaces. Passed as 'appname' to `rappdirs::user_data_dir`.}
 
-\item{mustWork, }{logical. Whether an error should be created if the file does
-not exist. If mustWork=FALSE and the file does not exist, the empty string is
-returned.}
+\item{filename, }{string. A filename, relative to the package cache. Passed to  \code{relative_filename} argument in pkgfilecache::get_filepath().}
+
+\item{mustWork}{logical. Whether an error should be created if the file does not exist.}
 }
 \value{
 string. The full path to the file in the package cache. Use this in
