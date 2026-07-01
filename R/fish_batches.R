@@ -692,7 +692,14 @@ sanitize_batch_data <- function(
 
     if (nrow(validation_issues) > 0) {
       message("\nValidation issues by type:")
-      print(table(validation_issues$batch_type, validation_issues$issue))
+      message(
+        # Trick to mimic print.table() with message:
+        # https://stackoverflow.com/a/36576647
+        paste0(
+          utils::capture.output(
+            table(validation_issues$batch_type, validation_issues$issue)
+          ), collapse = "\n")
+      )
     }
   }
 

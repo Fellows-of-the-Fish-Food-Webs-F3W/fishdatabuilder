@@ -21,8 +21,8 @@ create_test_batch_data <- function() {
   )
   
   ind_measure <- data.frame(
-    batch_id = c(1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4),
-    size = c(110, 125, 140, 200, 220, 240, 260, 280, 45, 50, 55, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390),
+    batch_id = c(1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, rep(6, 10)),
+    size = c(110, 125, 140, 200, 220, 240, 260, 280, 45, 50, 55, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, runif(10, 600, 900)),
     stringsAsFactors = FALSE
   )
   
@@ -374,18 +374,17 @@ test_that("sanitize_batch_data handles verbose output", {
 
   # Test with verbose = TRUE
   suppressMessages(
-  suppressMessages(
     expect_message(
       result <- sanitize_batch_data(
-        fish_batch = test_data$fish_batch,
+        # remove the batch_id which trigger a warning
+        fish_batch = test_data$fish_batch |> dplyr::filter(batch_id != 6),
         ind_measure = test_data$ind_measure,
         species_ref = test_data$species_ref,
         verbose = TRUE,
-        min_individuals_SL = 10,
+        min_individuals_SL = 5,
         min_individuals_G = 5
       ),
       "=== Batch Data Sanitization Summary ==="
-    )
     )
   )
 
