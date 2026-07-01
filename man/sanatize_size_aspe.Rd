@@ -7,7 +7,7 @@
 sanatize_size_aspe(
   fish_batch = clean_fish_batch(),
   ind_measure = clean_individual_measurement_aspe(),
-  species_ref = cleaning_species_ref_aspe(),
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE),
   fishbase_length_length = NULL,
   conversion_vector = coefficients_fork2total(),
   convert_intercept_cm2mm = TRUE

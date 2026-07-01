@@ -9,7 +9,7 @@ sanitize_species_code(
   species_var = species_code,
   species_to_remove = species_code_to_remove(),
   species_to_replace = species_code_to_replace(),
-  species_ref = cleaning_species_ref_aspe()
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE)
 )
 }
 \arguments{

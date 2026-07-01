@@ -31,7 +31,7 @@
 convert_fork_to_total <- function(
   fish_batch = clean_fish_batch(),
   ind_measure = clean_individual_measurement_aspe(),
-  species_ref = cleaning_species_ref_aspe(),
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE),
   fishbase_length_length = NULL,
   conversion_vector = coefficients_fork2total(),
   convert_intercept_cm2mm = TRUE,
@@ -154,7 +154,7 @@ convert_fork_to_total <- function(
 
   # G. Validate conversions
   validate_conversion(ind_measure_fork, batch_fork)
-  
+
   # H. Replace original data with converted data
   ind_measure_updated <- ind_measure |>
     dplyr::filter(!batch_id %in% batch_fork_ids) |>
@@ -162,14 +162,14 @@ convert_fork_to_total <- function(
       ind_measure_fork |>
         dplyr::select(-a, -b, -original_size)
     )
-  
+
   fish_batch_updated <- fish_batch |>
     dplyr::filter(!batch_id %in% batch_fork_ids) |>
     dplyr::bind_rows(
       batch_fork |>
         dplyr::select(-a, -b, -min_length_original, -max_length_original)
     )
-  
+
   # I. Return results
   list(
     ind_measure = ind_measure_updated,
@@ -189,7 +189,7 @@ convert_fork_to_total <- function(
 #' @param ind_measure A data frame containing individual fish measurements.
 #'   Must contain columns: `measure_id`, `batch_id`, `species_code`, `size`.
 #' @param fish_batch A data frame containing fish batch data.
-#'   Must contain columns: `batch_id`, `species_code`, `batch_type`, 
+#'   Must contain columns: `batch_id`, `species_code`, `batch_type`,
 #'   `min_length`, `max_length`.
 #' @param species_ref A data frame containing species reference data.
 #'   Must contain columns: `species_code`, `maximal_length_mm`.
@@ -206,11 +206,11 @@ convert_fork_to_total <- function(
 #'
 #' @details
 #' The function performs two main validation steps:
-#' 
+#'
 #' **1. Individual measurement validation**
 #'   - Compares each measurement against species-specific maximum length
 #'   - Flags or removes measurements exceeding the maximum
-#' 
+#'
 #' **2. Batch-level validation for S/L batches**
 #'   - For batches with "S/L" type, recalculates min/max from individual measurements
 #'   - Ensures batch-level statistics are consistent with individual data
@@ -229,20 +229,20 @@ remove_impossible_lengths <- function(
   if (!is.data.frame(ind_measure)) stop("ind_measure must be a data frame")
   if (!is.data.frame(fish_batch)) stop("fish_batch must be a data frame")
   if (!is.data.frame(species_ref)) stop("species_ref must be a data frame")
-  
+
   required_ind_cols <- c("measure_id", "batch_id", "species_code", "size")
   missing_ind <- setdiff(required_ind_cols, names(ind_measure))
   if (length(missing_ind) > 0) {
     stop("ind_measure missing columns: ", paste(missing_ind, collapse = ", "))
   }
- 
-  required_batch_cols <- c("batch_id", "species_code", "batch_type", 
+
+  required_batch_cols <- c("batch_id", "species_code", "batch_type",
                            "min_length", "max_length")
   missing_batch <- setdiff(required_batch_cols, names(fish_batch))
   if (length(missing_batch) > 0) {
     stop("fish_batch missing columns: ", paste(missing_batch, collapse = ", "))
   }
- 
+
   required_ref_cols <- c("species_code", "maximal_length_mm")
   missing_ref <- setdiff(required_ref_cols, names(species_ref))
   if (length(missing_ref) > 0) {
@@ -255,23 +255,23 @@ remove_impossible_lengths <- function(
       dplyr::select(species_ref, species_code, maximal_length_mm),
       by = "species_code"
     )
- 
+
   # Check for missing max lengths
-  missing_max <- ind_measure |> 
+  missing_max <- ind_measure |>
     dplyr::filter(is.na(maximal_length_mm)) |>
     dplyr::pull(species_code) |>
     unique()
- 
+
   if (length(missing_max) > 0) {
-    warning("Missing maximal length for species: ", 
+    warning("Missing maximal length for species: ",
             paste(missing_max, collapse = ", "))
   }
- 
+
   # B. Identify outliers
   outliers <- ind_measure |>
-    dplyr::filter(!is.na(size), !is.na(maximal_length_mm), 
+    dplyr::filter(!is.na(size), !is.na(maximal_length_mm),
                   size > maximal_length_mm)
- 
+
   # C. Handle outliers
   if (remove_outliers) {
     ind_measure_cleaned <- ind_measure |>
@@ -317,7 +317,7 @@ remove_impossible_lengths <- function(
         max_length = max_size
       ) |>
       dplyr::select(-min_size, -max_size)
- 
+
     fish_batch_updated <- fish_batch |>
       dplyr::filter(batch_type != "S/L") |>
       dplyr::bind_rows(sl_batches_updated)
@@ -364,13 +364,13 @@ validate_conversion <- function(ind_measure_fork, batch_fork) {
       warning("Some individual measurements decreased after conversion")
     }
   }
-  
+
   if (nrow(batch_fork) > 0) {
     min_decreased <- batch_fork$min_length < (batch_fork$min_length_original - 0.01)
     if (any(min_decreased, na.rm = TRUE)) {
       warning("Some batch minimum lengths decreased after conversion")
     }
-    
+
     max_decreased <- batch_fork$max_length < (batch_fork$max_length_original - 0.01)
     if (any(max_decreased, na.rm = TRUE)) {
       warning("Some batch maximum lengths decreased after conversion")
@@ -414,11 +414,11 @@ build_conversion_coefficients <- function(
   species_code_name <- species_fork |>
     dplyr::select(species_code, latin_name) |>
     dplyr::distinct()
-  
+
   # Initialize results
   all_coeffs <- data.frame()
   source_log <- data.frame()
-  
+
   # Process FishBase coefficients
   fb_coeffs <- NULL
   if (!is.null(fishbase_length_length) && nrow(fishbase_length_length) > 0) {
@@ -430,13 +430,13 @@ build_conversion_coefficients <- function(
       dplyr::left_join(species_code_name, by = c("Species" = "latin_name")) |>
       dplyr::select(species_code, a, b) |>
       dplyr::filter(!is.na(species_code))
-    
+
     # Add source information
     if (nrow(fb_coeffs) > 0) {
       fb_coeffs$source <- "FishBase"
     }
   }
-  
+
   # Process manual coefficients
   manual_coeffs <- conversion_vector |>
     tibble::enframe(name = "species_code", value = "b") |>
@@ -445,7 +445,7 @@ build_conversion_coefficients <- function(
       b = as.double(b)
     ) |>
     dplyr::mutate(a = 0, source = "Manual")
- 
+
   # Combine based on priority
   if (manual_priority) {
     # Manual takes precedence
@@ -476,11 +476,11 @@ build_conversion_coefficients <- function(
       all_coeffs <- fb_coeffs
     }
   }
- 
+
   # Document coefficient sources
   if (!is.null(fb_coeffs) && !is.null(manual_coeffs)) {
     overlapping <- intersect(fb_coeffs$species_code, manual_coeffs$species_code)
- 
+
     if (length(overlapping) > 0 && verbose) {
       priority_msg <- if (manual_priority) "manual" else "FishBase"
       message(
@@ -489,7 +489,7 @@ build_conversion_coefficients <- function(
         ". Using ", priority_msg, " coefficients."
       )
     }
-    
+
     # Create source log
     source_log <- data.frame(
       species_code = unique(c(fb_coeffs$species_code, manual_coeffs$species_code))
@@ -506,21 +506,21 @@ build_conversion_coefficients <- function(
         )
       )
   }
-  
+
   # Check for missing species
   missing_species <- setdiff(species_fork$species_code, all_coeffs$species_code)
   if (length(missing_species) > 0 && verbose) {
-    warning("No conversion coefficients for species: ", 
+    warning("No conversion coefficients for species: ",
             paste(missing_species, collapse = ", "))
   }
-  
+
   # Validate coefficients
   if (nrow(all_coeffs) > 0) {
     if (any(all_coeffs$b <= 0, na.rm = TRUE)) {
       warning("Non-positive slope coefficients detected")
     }
     if (any(all_coeffs$b > 1.2, na.rm = TRUE)) {
-      warning("Unusually large slope coefficients found: ", 
+      warning("Unusually large slope coefficients found: ",
         paste(all_coeffs$b[all_coeffs$b > 1.2], collapse = ", "))
     }
   }
@@ -559,32 +559,32 @@ build_conversion_coefficients <- function(
 #'
 #' @section Conversion coefficients by species:
 #' \describe{
-#'   \item{ALA}{*Alosa alosa* — 1.0989 (TL = FL × 1.0989) — 
+#'   \item{ALA}{*Alosa alosa* — 1.0989 (TL = FL × 1.0989) —
 #'         [FishBase data](https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Alalo_u1.gif)}
 #'   \item{LOF}{*Barbatula barbatula* — 1.0 — Tail rect, minor difference}
-#'   \item{LPP}{*Lampetra planeri* — 1.0 — Tail rect, no difference — 
+#'   \item{LPP}{*Lampetra planeri* — 1.0 — Tail rect, no difference —
 #'         [FishBase data](https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lapla_u3.jpg)}
-#'   \item{CHE}{*Squalius cephalus* — 1.0638 (TL = FL × 1.0638) — 
+#'   \item{CHE}{*Squalius cephalus* — 1.0638 (TL = FL × 1.0638) —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lecep_u2.jpg)}
 #'   \item{VAR}{*Leuciscus leuciscus* — 1.0881 — Coefficient from closely related
 #'         *L. leuciscus* [FishBase data](https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg)}
-#'   \item{MUP}{*Chelon ramada* — 1.070 — 
+#'   \item{MUP}{*Chelon ramada* — 1.070 —
 #'         [FishBase length-length data](https://www.fishbase.se/popdyn/LLRelationshipList.php?ID=4583)}
-#'   \item{GTN}{*Neogobius melanostomus* — 1.0 — 
+#'   \item{GTN}{*Neogobius melanostomus* — 1.0 —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nemel_u3.gif)}
-#'   \item{TAC}{*Oncorhynchus mykiss* — 1.0183 — 
+#'   \item{TAC}{*Oncorhynchus mykiss* — 1.0183 —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Onmyk_m1.jpg)}
-#'   \item{PAP}{*Pachychilon pictum* — 1.0787 — 
+#'   \item{PAP}{*Pachychilon pictum* — 1.0787 —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Papic_u2.jpg)}
 #'   \item{TOX}{*Leuciscus leuciscus* — 1.0881 — Coefficient from closely related
 #'         *L. leuciscus* [FishBase data](https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg)}
-#'   \item{PER}{*Perca fluviatilis* — 1.0493 — 
+#'   \item{PER}{*Perca fluviatilis* — 1.0493 —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Peflu_u0.gif)}
-#'   \item{GKS}{*Ponticola kessleri* — 1.0 — Tail rect, no difference — 
+#'   \item{GKS}{*Ponticola kessleri* — 1.0 — Tail rect, no difference —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nekes_u0.jpg)}
-#'   \item{GDL}{*Gymnocephalus cernua* — 1.0 — Tail rect, no difference — 
+#'   \item{GDL}{*Gymnocephalus cernua* — 1.0 — Tail rect, no difference —
 #'         [FishBase photo](https://fishbase.se/photos/ThumbnailsSummary.php?ID=65128)}
-#'   \item{SAN}{*Sander lucioperca* — 1.0684 — 
+#'   \item{SAN}{*Sander lucioperca* — 1.0684 —
 #'         [FishBase data](https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Saluc_u2.jpg)}
 #'   \item{APR}{*Zingel asper* — 1.0 — Tail almost rect, no measured difference
 #'         for *Zingel* genus in FishBase}
@@ -601,16 +601,16 @@ build_conversion_coefficients <- function(
 #' \dontrun{
 #' # Get coefficients for all species
 #' coeffs <- coefficients_fork2total()
-#' 
+#'
 #' # Apply conversion to a data frame
 #' fish_data <- fish_data |>
 #'   dplyr::mutate(
 #'     total_length = fork_length * coefficients_fork2total()[species_code]
 #'   )
-#' 
+#'
 #' # Get coefficient for a specific species
 #' coeff <- coefficients_fork2total()["PER"]  # Perca fluviatilis
-#' 
+#'
 #' # Convert only species with available coefficients
 #' species_with_coeff <- names(coefficients_fork2total())
 #' fish_to_convert <- fish_data |>
@@ -656,7 +656,7 @@ coefficients_fork2total <- function() {
 sanatize_size_aspe <- function(
   fish_batch = clean_fish_batch(),
   ind_measure = clean_individual_measurement_aspe(),
-  species_ref = cleaning_species_ref_aspe(),
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE),
   fishbase_length_length = NULL,
   conversion_vector = coefficients_fork2total(),
   convert_intercept_cm2mm = TRUE
@@ -665,7 +665,7 @@ sanatize_size_aspe <- function(
     new = "convert_fork_to_total and remove_impossible_lengths",
     package = "yourpackage"
   )
-  
+
   # Run conversion
   converted <- convert_fork_to_total(
     fish_batch = fish_batch,
@@ -675,7 +675,7 @@ sanatize_size_aspe <- function(
     conversion_vector = conversion_vector,
     convert_intercept_cm2mm = convert_intercept_cm2mm
   )
-  
+
   # Run outlier removal
   cleaned <- remove_impossible_lengths(
     ind_measure = converted$ind_measure,
@@ -683,7 +683,7 @@ sanatize_size_aspe <- function(
     species_ref = species_ref,
     remove_outliers = TRUE
   )
-  
+
   # Return in original format
   list(
     ind_measure = cleaned$ind_measure,

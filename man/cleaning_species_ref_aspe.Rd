@@ -2,17 +2,43 @@
 % Please edit documentation in R/cleaning_operation.R
 \name{cleaning_species_ref_aspe}
 \alias{cleaning_species_ref_aspe}
-\title{Clean and standardize species reference data from ASPE database}
+\title{Standardize species reference data from ASPE database}
 \usage{
-cleaning_species_ref_aspe(species = get_species_aspe())
+cleaning_species_ref_aspe(
+  species = get_species_aspe(),
+  reference_lmax = NULL,
+  warn_missing_fishbase = TRUE
+)
 }
 \arguments{
 \item{species}{A data frame containing species reference data.
-By default uses \code{get_species_aspe()} to retrieve raw data.}
+By default uses \code{get_species_aspe()}.}
+
+\item{reference_lmax}{Optional pre-processed maximal length reference table.
+Must contain \code{latin_name}, \code{maximal_length_mm}, and
+\code{maximal_length_source}. If \code{NULL}, reference lengths are retrieved from
+FishBase using \code{rfishbase::popchar()}.}
+
+\item{warn_missing_fishbase}{Logical. If \code{TRUE} (default), emit a warning
+when the ASPE maximal length of a taxon cannot be compared with
+FishBase. Set to \code{FALSE} to suppress this warning.}
 }
 \value{
-A data frame
+A data frame containing standardized species reference data:
+\itemize{
+\item \code{species_id}: Species identifier
+\item \code{species_code}: Species code
+\item \code{common_name_fr}: French common name
+\item \code{latin_name}: Latin name
+\item \code{maximal_length_mm}: Retained maximal length (in mm)
+\item \code{maximal_length_source}: Source of the retained maximal length
+(\code{"aspe"}, \code{"fishbase"} or the value provided in \code{reference_lmax})
+}
 }
 \description{
-Clean species reference data by renaming species columns, and translating them.
+Standardize species reference data by renaming columns, translating them,
+and updating maximal length using FishBase with \code{rfishbase::popchar()}
+or an external reference when higher and available.
+The source of the retained maximal length is returned in
+\code{maximal_length_source}.
 }

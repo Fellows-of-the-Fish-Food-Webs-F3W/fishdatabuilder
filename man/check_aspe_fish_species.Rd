@@ -6,7 +6,7 @@
 \usage{
 check_aspe_fish_species(
   species = c("ABL", "TRF"),
-  species_ref = cleaning_species_ref_aspe()
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE)
 )
 }
 \arguments{

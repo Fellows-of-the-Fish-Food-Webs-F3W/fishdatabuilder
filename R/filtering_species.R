@@ -6,7 +6,7 @@
 #' @param species A character vector of species codes to validate (three-letter
 #'   uppercase codes). Default example shows common codes "ABL" and "TRF".
 #' @param species_ref A data frame containing species reference data with at least
-#'   columns `species_code` and `latin_name`. By default uses 
+#'   columns `species_code` and `latin_name`. By default uses
 #'   `cleaning_species_ref_aspe()`.
 #'
 #' @return Invisibly returns a list with validation results:
@@ -43,11 +43,11 @@
 #' \dontrun{
 #' # Check specific species
 #' check_aspe_fish_species(c("ABL", "TRF", "ANG"))
-#' 
+#'
 #' # Get all species from your data
 #' all_species <- unique(fish_data$species_code)
 #' check_aspe_fish_species(all_species)
-#' 
+#'
 #' # Capture validation results
 #' results <- check_aspe_fish_species(c("ABL", "INVALID", "TRF"))
 #' results$missing_in_ref  # Shows "INVALID"
@@ -62,37 +62,37 @@
 #' @export
 check_aspe_fish_species <- function(
   species = c("ABL", "TRF"),
-  species_ref = cleaning_species_ref_aspe()
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE)
 ){
   # Input validation
   if (!is.character(species)) {
     stop("`species` must be a character vector", call. = FALSE)
   }
-  
+
   if (!is.data.frame(species_ref)) {
     stop("`species_ref` must be a data frame", call. = FALSE)
   }
-  
+
   required_ref_cols <- c("species_code", "latin_name")
   missing_ref_cols <- setdiff(required_ref_cols, names(species_ref))
   if (length(missing_ref_cols) > 0) {
-    stop("`species_ref` missing required columns: ", 
+    stop("`species_ref` missing required columns: ",
          paste(missing_ref_cols, collapse = ", "), call. = FALSE)
   }
 
   species <- unique(species)
-  
+
   # Initialize results list
   results <- list(
     valid_codes = character(),
     missing_in_ref = character(),
     missing_in_fishbase = character()
   )
-  
+
   # Check all provided code are in ref:
   species_mask_ref <- species %in% species_ref$species_code
   results$missing_in_ref <- species[!species_mask_ref]
-  
+
   if (!all(species_mask_ref)) {
     warning("Missing species in reference: ",
             paste(results$missing_in_ref, collapse = ", "),
@@ -148,7 +148,7 @@ check_aspe_fish_species <- function(
 #' unwanted species codes and replacing undetermined/hybrid codes with
 #' standardized ones.
 #'
-#' @param data A data frame containing fish batch data. By default uses 
+#' @param data A data frame containing fish batch data. By default uses
 #'   `get_fish_batch_aspe()`. Must contain the species code variable.
 #' @param species_var The unquoted name of the column containing species codes.
 #'   Default is `species_code`.
@@ -209,23 +209,23 @@ sanitize_species_code <- function(
   species_var = species_code,
   species_to_remove = species_code_to_remove(),
   species_to_replace = species_code_to_replace(),
-  species_ref = cleaning_species_ref_aspe()
+  species_ref = cleaning_species_ref_aspe(warn_missing_fishbase = FALSE)
 ){
   # Input validation
   if (!is.data.frame(data)) {
     stop("`data` must be a data frame", call. = FALSE)
   }
-  
+
   # Check if species_var exists in data
   species_col <- rlang::as_name(rlang::enquo(species_var))
   if (!species_col %in% names(data)) {
     stop("Column '", species_col, "' not found in data", call. = FALSE)
   }
- 
+
   if (!is.character(species_to_remove) && !is.logical(species_to_remove)) {
     stop("`species_to_remove` must be a character or logical vector", call. = FALSE)
   }
- 
+
   if (!is.character(species_to_replace) || is.null(names(species_to_replace))) {
     stop("`species_to_replace` must be a named character vector", call. = FALSE)
   }
@@ -236,12 +236,12 @@ sanitize_species_code <- function(
       {{species_var}},
       species_to_replace
     ))
- 
+
   # Optional: Check if any replacements introduced NA or unexpected values
   if (any(is.na(data[[species_col]]))) {
     warning("NA values introduced in species codes after replacement", call. = FALSE)
   }
- 
+
   data
 }
 
@@ -260,24 +260,24 @@ species_latin_name_to_replace <- function() {
 
 #' List of species codes to remove from ASPE sampling data
 #'
-#' Generates a vector of species codes (three-letter uppercase codes) that can be 
-#' filtered out from datasets, including non-fish species (primarily crayfish) 
+#' Generates a vector of species codes (three-letter uppercase codes) that can be
+#' filtered out from datasets, including non-fish species (primarily crayfish)
 #' and undetermined individuals that cannot be reliably assigned to a species.
 #'
 #' @param not_fish Logical. If `TRUE` (default), includes codes for non-fish species
 #'   such as crayfish and crabs that are captured during fish sampling but should
 #'   typically be excluded from fish community analyses.
-#' @param not_determined Logical. If `TRUE` (default), includes codes for 
+#' @param not_determined Logical. If `TRUE` (default), includes codes for
 #'   undetermined individuals that lack information for a species-level identification.
 #'
 #' @param additional_codes Character vector. Additional species codes to be added the output
 #'
-#' @return A character vector of three-letter uppercase species codes to be 
+#' @return A character vector of three-letter uppercase species codes to be
 #'   excluded from analyses. Returns an empty vector if both parameters are `FALSE`.
 #'
 #' @details
 #' The function categorizes species codes into two groups:
-#' 
+#'
 #' **Non-fish species** (included when `not_fish = TRUE`):
 #' \describe{
 #'   \item{ASL}{Crayfish (unspecified)}
@@ -289,7 +289,7 @@ species_latin_name_to_replace <- function() {
 #'   \item{PCV}{Crayfish "*Procambarus virginalis*"}
 #'   \item{PFL}{Signal crayfish}
 #' }
-#' 
+#'
 #' **Undetermined species** (included when `not_determined = TRUE`):
 #' \describe{
 #'   \item{COR}{Undetermined *Coregonus* (lake whitefish genus)}
@@ -306,14 +306,14 @@ species_latin_name_to_replace <- function() {
 #' \dontrun{
 #' # Get all species to remove (default)
 #' remove_codes <- species_code_to_remove()
-#' 
+#'
 #' # Remove only non-fish species, keep undetermined
 #' remove_codes <- species_code_to_remove(not_determined = FALSE)
-#' 
+#'
 #' # Use in filtering operations
 #' clean_fish_data <- fish_data %>%
 #'   dplyr::filter(!species_code %in% species_code_to_remove())
-#'   
+#'
 #' # Keep all species (empty removal list)
 #' keep_all <- species_code_to_remove(not_fish = FALSE, not_determined = FALSE)
 #' }
@@ -321,7 +321,7 @@ species_latin_name_to_replace <- function() {
 #' @seealso
 #' - [clean_fish_batch()] for fish batch data cleaning
 #' - [clean_individual_measurement_aspe()] for individual fish measurements
-#' 
+#'
 #' @return A character vector of species codes to remove
 #' @export
 species_code_to_remove <- function(
@@ -382,7 +382,7 @@ species_code_to_remove <- function(
 #'
 #' @details
 #' The function returns a named character vector where:
-#' * **Names** are the original codes found in the database (undetermined, hybrid, 
+#' * **Names** are the original codes found in the database (undetermined, hybrid,
 #'   or alternative classifications)
 #' * **Values** are the standardized species codes to replace them with
 #'
@@ -399,7 +399,7 @@ species_code_to_remove <- function(
 #' }
 #'
 #' @section Mapping Categories:
-#' 
+#'
 #' **Undetermined genus/species** (codes ending with X):
 #' \describe{
 #'   \item{BBX → BBG}{Undetermined black bass to *Micropterus salmoides* (closest in maximum length)}
@@ -475,13 +475,13 @@ species_code_to_remove <- function(
 #' \dontrun{
 #' # Get the replacement mapping
 #' replacement_map <- species_code_to_replace()
-#' 
+#'
 #' # Use in data cleaning
 #' clean_species_data <- fish_data %>%
 #'   dplyr::mutate(
 #'     species_code = dplyr::recode(species_code, !!!species_code_to_replace())
 #'   )
-#' 
+#'
 #' # Check which codes will be replaced
 #' original_codes <- names(species_code_to_replace())
 #' replacement_codes <- species_code_to_replace()
