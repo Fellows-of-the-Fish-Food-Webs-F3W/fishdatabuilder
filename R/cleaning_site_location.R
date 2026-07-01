@@ -29,11 +29,22 @@
 #'        for output coordinates. Default is 4326 (WGS84).
 #'
 #' @return A data frame with standardized station data containing:
-#' \itemize{
-#'   \item site_id - Station identifier
-#'   \item x - Longitude or easting in target CRS
-#'   \item y - Latitude or northing in target CRS
-#' }
+#'   \describe{
+#'     \item{site_id}{Integer. Unique identifier for the sampling station.}
+#'     \item{x}{Numeric. Longitude (for EPSG:4326) or easting coordinate 
+#'       in the target CRS.}
+#'     \item{y}{Numeric. Latitude (for EPSG:4326) or northing coordinate 
+#'       in the target CRS.}
+#'     \item{sandre_code}{Character. National river code from the SANDRE 
+#'       reference system (French national water data repository).}
+#'     \item{insee_town_code}{Character. INSEE code of the municipality 
+#'       where the station is located (5-digit French administrative code).}
+#'     \item{precise_location}{Character. Additional information about 
+#'       the station's precise location (e.g., "Pont de la route D12", 
+#'       "Aval barrage").}
+#'     \item{body_water_code}{Character. National water body code from the
+#'       SANDRE reference system.}
+#'   }
 #'
 #' @examples
 #' \dontrun{

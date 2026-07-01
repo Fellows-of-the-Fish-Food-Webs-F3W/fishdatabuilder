@@ -11,12 +11,16 @@
 #'
 #' @return A data frame with columns:
 #'   \itemize{
-#'     \item `batch_id`: Batch identifier
-#'     \item `species_code`: Species code
-#'     \item `size_mm`: Individual fish sizes in millimeters (rounded)
-#'     \item `measured`: Logical flag indicating if the fish was directly measured
+#'     \item `operation_id`: Integer. Identifier of the fishing operation
+#'       (links to `clean_operation_aspe()`).
+#'     \item `batch_id`: Integer. Identifier of the fish batch
+#'       (links to `clean_fish_batch()`).
+#'     \item `species_code`: Character. Three-letter ASPE species code.
+#'     \item `size_mm`: Integer. Individual fish length in millimeters
+#'       (rounded to nearest mm).
+#'     \item `measured`: Logical. Indicates whether the fish was directly
+#'       measured (`TRUE`) or statistically imputed (`FALSE`).
 #'   }
-#'
 #'
 #' @details
 #' The function processes each batch type differently:

@@ -1028,7 +1028,12 @@ clean_description_operation_aspe <- function(
 #' @param species A data frame containing species reference data.
 #'   By default uses `get_species_aspe()` to retrieve raw data.
 #'
-#' @return A data frame
+#' @return A data frame with cleaned species reference data containing:
+#'   \describe{
+#'     \item{species_code}{Character. Three-letter ASPE species code (primary key).}
+#'     \item{latin_name}{Character. Scientific name of the species (e.g., "Perca fluviatilis").}
+#'     \item{common_name_fr}{Character. Common name in French (e.g., "Perche").}
+#'     \item{maximal_length_mm}{Numeric. Maximum recorded length for the species in millimeters.}
 #
 #' @importFrom dplyr select rename_with
 #' @export
