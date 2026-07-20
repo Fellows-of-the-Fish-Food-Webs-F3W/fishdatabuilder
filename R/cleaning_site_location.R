@@ -9,7 +9,7 @@
 #'   \item Extracting X/Y coordinates from geometry
 #' }
 #'
-#' @param station A data frame containing station data. By default uses 
+#' @param station A data frame containing station data. By default uses
 #'        `get_raw_station_aspe()` to retrieve standard station data.
 #'        Expected columns:
 #'        \itemize{
@@ -25,7 +25,7 @@
 #'          \item typ_id - Matching station type IDs
 #'          \item typ_code_epsg - EPSG codes for each type
 #'        }
-#' @param crs_to Numeric. The target coordinate reference system (EPSG code) 
+#' @param crs_to Numeric. The target coordinate reference system (EPSG code)
 #'        for output coordinates. Default is 4326 (WGS84).
 #'
 #' @return A data frame with standardized station data containing:
@@ -47,7 +47,7 @@
 #'   sta_x = c(100, 200),
 #'   sta_y = c(300, 400)
 #' )
-#' 
+#'
 #' custom_ref <- data.frame(
 #'   typ_id = 1:2,
 #'   typ_code_epsg = c(2154, 4326)
@@ -81,18 +81,18 @@ clean_station_aspe <- function(
   if (!is.data.frame(ref_coordinates)) {
     stop("`ref_coordinates` must be a data frame", call. = FALSE)
   }
- 
+
   required_ref_cols <- c("typ_id", "typ_code_epsg")
   missing_ref_cols <- setdiff(required_ref_cols, names(ref_coordinates))
- 
+
   if (length(missing_ref_cols) > 0) {
     stop(
       "Reference data is missing required columns: ",
-      paste(missing_ref_cols, collapse = ", "), 
+      paste(missing_ref_cols, collapse = ", "),
       call. = FALSE
     )
   }
-  
+
   ## CRS validation
   if (!is.numeric(crs_to) || length(crs_to) != 1) {
     stop("`crs_to` must be a single numeric EPSG code", call. = FALSE)
@@ -113,7 +113,7 @@ clean_station_aspe <- function(
   if (length(missing_st_cols) > 0) {
     stop(
       "Station data is missing required columns: ",
-      paste(missing_st_cols, collapse = ", "), 
+      paste(missing_st_cols, collapse = ", "),
       call. = FALSE
     )
   }
@@ -198,14 +198,14 @@ clean_station_aspe <- function(
 #' \dontrun{
 #' # Get station data
 #' stations <- get_raw_station_aspe()
-#' 
+#'
 #' # Get operation data
 #' operations <- get_raw_operation_aspe()
-#' 
+#'
 #' # Get reference tables
 #' objectives <- get_ref_objective_operation_aspe()
 #' protocols <- get_ref_protocol_operation_aspe()
-#' 
+#'
 #' # Use custom files
 #' custom_stations <- get_raw_station_aspe(file = "custom_stations.csv")
 #' }
@@ -239,6 +239,7 @@ get_raw_ref_coordinates_station_aspe <- function(file = "ref_type_projection.csv
 #' @rdname raw_data_accessors
 #' @details For `get_raw_operation_aspe()`: Retrieves fishing operation metadata.
 #' Default file: `"operation.csv"`
+#' @export get_raw_operation_aspe
 get_raw_operation_aspe <- function(file = "operation.csv") {
   read_raw_data(file_name = file)
 }
@@ -246,7 +247,7 @@ get_raw_operation_aspe <- function(file = "operation.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_ref_objective_operation_aspe()`: Retrieves operation objective reference data.
 #' Default file: `"ref_objectif.csv"`
-#' @export get_objective_operation_aspe
+#' @export get_ref_objective_operation_aspe
 get_ref_objective_operation_aspe <- function(file = "ref_objectif.csv") {
   read_raw_data(file_name = file)
 }
@@ -380,9 +381,9 @@ get_ref_type_length_aspe <- function(file = "ref_type_longueur.csv") {
 #' Not intended for direct use by package users.
 #'
 #' @param file_name Character. Name of the file to read (must exist in package cache).
-#' 
+#'
 #' @return A data frame containing the read data
-#' 
+#'
 #' @keywords internal
 #' @noRd
 read_raw_data <- function(file_name = NULL) {
