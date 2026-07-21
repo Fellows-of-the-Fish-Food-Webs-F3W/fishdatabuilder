@@ -25,6 +25,12 @@ jobs:
           extra-packages: any::covr, any::xml2
           needs: coverage
 
+      - name: Prepare optional ASPE data
+        run: |
+          R CMD INSTALL .
+          Rscript -e "fishdatabuilder::download_optional_data(); fishdatabuilder::extract_optional_data()"
+        shell: bash
+
       - name: Test coverage
         run: |
           cov <- covr::package_coverage(
