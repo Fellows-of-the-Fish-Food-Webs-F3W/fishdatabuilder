@@ -28,7 +28,7 @@ jobs:
       - name: Prepare optional ASPE data
         run: |
           R CMD INSTALL .
-          Rscript -e "fishdatabuilder::download_optional_data(); fishdatabuilder::extract_optional_data()"
+          Rscript -e "options(timeout = 3600); fishdatabuilder::download_optional_data(); fishdatabuilder::extract_optional_data()"
         shell: bash
 
       - name: Test coverage
