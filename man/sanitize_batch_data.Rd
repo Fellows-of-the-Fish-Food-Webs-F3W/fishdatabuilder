@@ -22,6 +22,9 @@ Expected columns: \code{batch_id}, \code{batch_type}, \code{number}, \code{speci
 (from \code{clean_individual_measurement_aspe()}).
 Expected columns: \code{batch_id}, \code{size}}
 
+\item{species_ref}{A data frame containing species reference data.
+Must contain columns: \code{species_code}, \code{maximal_length_mm}.}
+
 \item{min_individuals_G}{Integer. Minimum number of individuals required for
 type "G" batches to generate reliable distributions. Default is 5.}
 
@@ -44,7 +47,7 @@ Cleans fish batch data from ASPE standard format by filtering invalid records,
 checking required columns, and validating batch types and measurements.
 Ensures data quality before individual fish size generation.
 }
-\note{
+\details{
 The function performs the following validations:
 \itemize{
 \item Removes measurements without matching batch IDs
@@ -52,8 +55,22 @@ The function performs the following validations:
 \item Removes batches with invalid or missing fish counts (number <= 0 or NA)
 \item For type G: validates min/max are not NA, min_length <= max_length,
 and sufficient sample size (>= min_individuals_G)
-\item For type S/L: ensures at least min_individuals_SL measured individuals
+\item For type S/L:
+\itemize{
+\item Ensures at least \code{min_individuals_SL} measured individuals
+\item \strong{Automatically corrects} batch counts when measured individuals exceed
+recorded batch size (updates \code{number} to match measured count)
+}
 \item For types I and N: verifies measured count matches batch count
+}
+}
+\note{
+\itemize{
+\item For S/L batches, when measured individuals exceed the recorded batch count,
+the batch \code{number} is \strong{updated} rather than removed. This prevents data loss
+while flagging the issue in \code{validation_issues}.
+\item Batches with insufficient measured individuals (\verb{< min_individuals_SL}) are
+\strong{removed} as they cannot generate reliable distributions.
 }
 }
 \examples{

@@ -384,7 +384,7 @@ filter_operation_batch_measure <- function(
 #' custom_ids <- filter_operation_id(objective_to_exclude = custom_exclusions)
 #'
 #' # Use in filtering other datasets
-#' filtered_sampling <- sampling_data %>%
+#' filtered_sampling <- sampling_data |>
 #'   filter(operation_id %in% filter_operation_id())
 #' }
 #'
@@ -404,9 +404,9 @@ filter_operation_id <- function(
   # Get initial count
   initial_count <- length(unique(op$operation_id))
 
-  op <- op %>%
-    dplyr::select(operation_id, objective) %>%
-    tidyr::unnest(cols = c(objective)) %>%
+  op <- op |>
+    dplyr::select(operation_id, objective) |>
+    tidyr::unnest(cols = c(objective)) |>
     dplyr::filter(!objective %in% objective_to_exclude)
 
   op_id <- unique(op$operation_id)
@@ -433,9 +433,11 @@ filter_operation_id <- function(
 #' @param restoration Logical. If `FALSE` (default), restoration-related objectives
 #'   will be included in the exclusion list. If `TRUE`, restoration objectives
 #'   will not be excluded.
+#' @param restoration_objective Character vector containing the restoration objectives to exclude.
 #' @param population_monitoring Logical. If `FALSE` (default), population monitoring
 #'   objectives will be included in the exclusion list. If `TRUE`, population
 #'   monitoring objectives will not be excluded.
+#' @param population_objective Character vector containing the population monitoring objectives to exclude.
 #' @param keep_NA Logical. If `FALSE` (default), `NA` values will be included in
 #'   the exclusion list. If `TRUE`, `NA` values will not be excluded.
 #'
@@ -484,7 +486,7 @@ filter_operation_id <- function(
 #' )
 #'
 #' # Use in filtering operations
-#' clean_ops <- operations %>%
+#' clean_ops <- operations |>
 #'   filter(!objective %in% vec_op_objective_to_exclude())
 #' }
 #'
@@ -677,33 +679,33 @@ clean_operation_aspe <- function(
     )
   }
 
-  # Attach objective label to operation ids
-  op_objective <- op_objective %>%
-    dplyr::rename_with(., ~gsub("opo_", "", .x, fixed = TRUE)) %>%
-    dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) %>%
-    dplyr::select(ope_id, objective = obj_libelle) %>%
-    # Nest objectives because operations can have several objectives
-    group_by(ope_id) %>%
+  # Attach objective label to operation ids
+  op_objective <- op_objective |>
+    dplyr::rename_with(~gsub("opo_", "", .x, fixed = TRUE)) |>
+    dplyr::left_join(ref_objective, dplyr::join_by(obj_id)) |>
+    dplyr::select(ope_id, objective = obj_libelle) |>
+    # Nest objectives because operations can have several objectives
+    group_by(ope_id) |>
     nest(obj_libelle = c(objective))
 
-  sampling_point <- sampling_point %>%
+  sampling_point <- sampling_point |>
     dplyr::select(pop_id, pop_sta_id)
 
   # Translate protocol label into english
-  ref_protocol <- ref_protocol %>%
+  ref_protocol <- ref_protocol |>
     dplyr::mutate(pro_libelle = dplyr::recode(pro_libelle,
       !!!get_rev_vec_name_val(replacement_operation_protocol_label())))
 
   # Get objectives and protocol labels + station id
-  op <- op %>%
-    dplyr::left_join(op_objective, dplyr::join_by(ope_id)) %>%
-    dplyr::left_join(ref_protocol, dplyr::join_by(ope_pro_id == pro_id)) %>%
-    dplyr::left_join(sampling_point, dplyr::join_by(ope_pop_id == pop_id)) %>%
-    dplyr::rename_with(., ~gsub("ope_", "", .x, fixed = TRUE))
+  op <- op |>
+    dplyr::left_join(op_objective, dplyr::join_by(ope_id)) |>
+    dplyr::left_join(ref_protocol, dplyr::join_by(ope_pro_id == pro_id)) |>
+    dplyr::left_join(sampling_point, dplyr::join_by(ope_pop_id == pop_id)) |>
+    dplyr::rename_with(~gsub("ope_", "", .x, fixed = TRUE))
 
   # Select and remane columns
-  op <- op %>%
-    dplyr::select(all_of(replacement_operation_col())) %>%
+  op <- op |>
+    dplyr::select(all_of(replacement_operation_col())) |>
     # without_fish variable into logical variable
     dplyr::mutate(
       without_fish = stringr::str_replace_all(
@@ -713,7 +715,7 @@ clean_operation_aspe <- function(
       without_fish = as.logical(without_fish)
     )
   # Add date in lubridate format
-  op <- op %>%
+  op <- op |>
     dplyr::mutate(
       date_time = lubridate::ymd_hms(date),
       date = lubridate::date(date_time)
@@ -806,7 +808,7 @@ cleaning_elementary_sampling <- function(
   }
 
   # Translate labels of sampling method
-  ref_sampling <- ref_sampling %>%
+  ref_sampling <- ref_sampling |>
     dplyr::mutate(
       tpe_libelle = dplyr::recode(
         tpe_libelle,
@@ -815,20 +817,20 @@ cleaning_elementary_sampling <- function(
     )
 
   # Add prelevement libelle to detailled sampling
-  sampling <- sampling %>%
+  sampling <- sampling |>
     dplyr::left_join(
       dplyr::select(ref_sampling, tpe_id, prelevement_type = tpe_libelle),
       dplyr::join_by(pre_tpe_id == tpe_id)
     )
 
   # Sanatise column names
-  sampling <- sampling %>%
-    dplyr::rename_with(., ~gsub("pre_", "", .x, fixed = TRUE)) %>%
+  sampling <- sampling |>
+    dplyr::rename_with(~gsub("pre_", "", .x, fixed = TRUE)) |>
     select(all_of(replacement_sampling_col()))
 
   # Adding the number of passage
   ref_passage <- dplyr::rename(ref_passage, passage_number = pas_numero)
-  sampling <- sampling %>%
+  sampling <- sampling |>
     dplyr::left_join(ref_passage, dplyr::join_by(prelevement_id == pas_id))
   sampling
 }
@@ -864,19 +866,19 @@ cleaning_point_group <- function(
     )
   }
 
-  # Rename columns and translate reference labels
-  ref_point_group <- ref_point_group %>%
-    dplyr::rename(grp_tgp_id = tgp_id, point_type = tgp_libelle) %>%
-    dplyr::select(grp_tgp_id, point_type) %>%
+  # Rename columns and translate reference labels
+  ref_point_group <- ref_point_group |>
+    dplyr::rename(grp_tgp_id = tgp_id, point_type = tgp_libelle) |>
+    dplyr::select(grp_tgp_id, point_type) |>
     dplyr::mutate(point_type = recode(
       point_type,
       !!!get_rev_vec_name_val(replacement_point_type_label()))
     )
 
   # Add reference names to point group
-  point_group %>%
-    dplyr::left_join(ref_point_group) %>%
-    dplyr::select(-grp_tgp_id) %>%
+  point_group |>
+    dplyr::left_join(ref_point_group) |>
+    dplyr::select(-grp_tgp_id) |>
     dplyr::select(grp_id, point_type, everything())
 }
 
@@ -931,8 +933,6 @@ cleaning_point_group <- function(
 #' - [get_description_operation_aspe()] for raw data access
 #' - [get_ref_isolation_operation_aspe()] for isolation reference data
 #' - [get_ref_prospection_method_operation_aspe()] for prospection reference data
-#' - [replacement_isolation_label()] for isolation type translations
-#' - [replacement_prospection_label()] for prospection method translations
 #' @export
 clean_description_operation_aspe <- function(
   op_description = get_description_operation_aspe(),
@@ -984,14 +984,14 @@ clean_description_operation_aspe <- function(
   }
 
   # Translate labels of isolation and prospection method
-  ref_isolation <- ref_isolation %>%
+  ref_isolation <- ref_isolation |>
     dplyr::mutate(
       iso_libelle = dplyr::recode(
         iso_libelle,
         !!!get_rev_vec_name_val(replacement_isolation_label())
       )
     )
-  ref_prospection <- ref_prospection %>%
+  ref_prospection <- ref_prospection |>
     dplyr::mutate(
       mop_libelle = dplyr::recode(
         mop_libelle,
@@ -1000,23 +1000,23 @@ clean_description_operation_aspe <- function(
     )
 
   # Add isolation and prospection label to operation description
-  op_description <- op_description %>%
+  op_description <- op_description |>
     dplyr::left_join(
       dplyr::select(ref_isolation, iso_id, upstream_isolation = iso_libelle),
       dplyr::join_by(odp_iso_id_amont == iso_id)
-    ) %>%
+    ) |>
     dplyr::left_join(
       dplyr::select(ref_isolation, iso_id, downstream_isolation = iso_libelle),
       dplyr::join_by(odp_iso_id_aval == iso_id)
-    ) %>%
+    ) |>
     dplyr::left_join(
       dplyr::select(ref_prospection, mop_id, prospection_method = mop_libelle),
       dplyr::join_by(odp_mop_id == mop_id)
     )
 
   # Sanatize, replace and translate column names
-  op_description %>%
-    rename_with(., ~gsub("odp_", "", .x, fixed = TRUE)) %>%
+  op_description |>
+    rename_with(~gsub("odp_", "", .x, fixed = TRUE)) |>
     select(all_of(replacement_operation_description_col()))
 }
 
@@ -1400,32 +1400,32 @@ clean_fish_batch <- function(
   detail_sampling = cleaning_elementary_sampling()
 ) {
   # Translate and select columns
-  fish_batch <- fish_batch %>%
-    dplyr::rename_with(., ~gsub("lop_", "", .x, fixed = TRUE)) %>%
+  fish_batch <- fish_batch |>
+    dplyr::rename_with(~gsub("lop_", "", .x, fixed = TRUE)) |>
     dplyr::select(dplyr::all_of(replacement_batch_col()))
 
-  fish_batch <- fish_batch %>%
+  fish_batch <- fish_batch |>
     # Get batch name
     dplyr::left_join(
       dplyr::select(batch_ref, batch_type_id, batch_type),
       by = dplyr::join_by(batch_type_id)
-    ) %>%
+    ) |>
     # Get species code
     dplyr::left_join(
       dplyr::select(species_ref, species_id, species_code),
       by = dplyr::join_by(species_id)
-    ) %>%
+    ) |>
     # Get operation id from detail_sampling
     dplyr::left_join(
       dplyr::select(detail_sampling, prelevement_id, operation_id),
       by = dplyr::join_by(prelevement_id)
-    ) %>%
+    ) |>
     # Get type of length measurement
     dplyr::left_join(
       length_ref,
       by = dplyr::join_by(length_type_id)
-    ) %>%
-    dplyr::select(-species_id, -batch_type_id, -length_type_id) %>%
+    ) |>
+    dplyr::select(-species_id, -batch_type_id, -length_type_id) |>
     dplyr::select(batch_id, prelevement_id, operation_id,
       species_code, batch_type, everything())
 
@@ -1466,26 +1466,26 @@ clean_individual_measurement_aspe <- function(
   }
 
   # Standardize column names in individual measurements
-  ind_measure <- ind_measure %>%
-    dplyr::rename_with(~ gsub("mei_", "", .x, fixed = TRUE)) %>%
+  ind_measure <- ind_measure |>
+    dplyr::rename_with(~ gsub("mei_", "", .x, fixed = TRUE)) |>
     dplyr::select(dplyr::all_of(replacement_individual_measurement_col()))
   # Ensure that replacement_individual_measurement_col() includes
   # at least: "measure_id", "batch_id", "size"
 
   # Minimal set of columns from fish batch
-  fb_min <- fish_batch %>%
-    dplyr::select(batch_id, prelevement_id, operation_id, species_code) %>%
+  fb_min <- fish_batch |>
+    dplyr::select(batch_id, prelevement_id, operation_id, species_code) |>
     dplyr::distinct()
 
   # Minimal set of columns from operation
-  op_min <- op %>%
-    dplyr::select(operation_id, site_id) %>%
+  op_min <- op |>
+    dplyr::select(operation_id, site_id) |>
     dplyr::distinct()
 
   # Join chain on ind_measure directly
-  ind_measure <- ind_measure %>%
+  ind_measure <- ind_measure |>
     # Add prelevement_id, operation_id, species_code via batch_id
-    dplyr::left_join(fb_min, by = dplyr::join_by(batch_id)) %>%
+    dplyr::left_join(fb_min, by = dplyr::join_by(batch_id)) |>
     # Add site_id via operation_id
     dplyr::left_join(op_min, by = dplyr::join_by(operation_id))
 
@@ -1502,7 +1502,7 @@ clean_individual_measurement_aspe <- function(
     for (mc in missing_cols) ind_measure[[mc]] <- NA
   }
 
-  ind_measure <- ind_measure %>%
+  ind_measure <- ind_measure |>
     dplyr::select(dplyr::all_of(wanted))
 
   ind_measure

@@ -44,9 +44,12 @@ download_optional_data <- function() {
 #' @description Extract
 #' package cache. Will try to download the data only if it is not available.
 #'
+#' @inheritParams pkgfilecache::get_pkg_info
+#'
 #' @return logical vector indicating if the files have been successfully moved
 #' in the main folder of the package cache
 #'
+#' @importFrom utils unzip
 #' @export
 extract_optional_data <- function(packagename = "fishdatabuilder") {
   # Get info about the zip file
@@ -59,7 +62,7 @@ extract_optional_data <- function(packagename = "fishdatabuilder") {
     mustWork = TRUE)
 
   # Extract and remove the zip file
-  unzip(file_path, exdir = dirname(file_path))
+  utils::unzip(file_path, exdir = dirname(file_path))
   file.remove(file_path)
 
   # Move the files from the csv/ folder to the parent folder
@@ -88,6 +91,8 @@ extract_optional_data <- function(packagename = "fishdatabuilder") {
 #' local package cache. You can access these files with
 #' optional_filepath().
 #'
+#' @inheritParams pkgfilecache::get_pkg_info packagename
+#'
 #' @return vector of strings. The file names available, relative to the package
 #' cache.
 #'
@@ -100,11 +105,10 @@ list_optional_files <- function(packagename = "fishdatabuilder") {
 
 #' @title Access a single file from the package cache by its file name.
 #'
-#' @param filename, string. The filename of the file in the package cache.
+#' @inheritParams pkgfilecache::get_pkg_info
+#' @inheritParams pkgfilecache::get_filepath
 #'
-#' @param mustWork, logical. Whether an error should be created if the file does
-#' not exist. If mustWork=FALSE and the file does not exist, the empty string is
-#' returned.
+#' @param filename, string. A filename, relative to the package cache. Passed to  `relative_filename` argument in pkgfilecache::get_filepath().
 #'
 #' @return string. The full path to the file in the package cache. Use this in
 #' your application code to open the file.
@@ -119,6 +123,8 @@ get_optional_filepath <- function(packagename = "fishdatabuilder",
 
 
 #' @title Delete all data in the package cache.
+#'
+#' @inheritParams pkgfilecache::get_pkg_info packagename
 #'
 #' @return integer. The return value of the unlink() call: 0 for success, 1 for
 #' failure. See the unlink() documentation for details.

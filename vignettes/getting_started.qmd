@@ -13,6 +13,7 @@ knitr:
 ```{r}
 #| label: setup
 library(fishdatabuilder)
+library(dplyr)
 library(magrittr)
 ```
 
@@ -84,13 +85,17 @@ head(fish_batch)
 # Cleaned individual measurement of fish from the batches
 ind_measure <- clean_individual_measurement_aspe()
 head(ind_measure)
+
+# Cleaned species reference for aspe, e.g. species code to species names
+species <- cleaning_species_ref_aspe() |> as_tibble()
 ```
 
 ## Filter sampling events and subsampling 
 
 You can filtered the dataset according to some criteria, by default that we believe relevant for spatio-temporal analysis.
 
-```r
+```{r}
+#| id: filter-aspe-data
 filtered_sampling <- filter_operation_batch_measure(
   operation = op,
   op_protocol_to_keep = c("complete", "partial_by_point",  "partial_over_bank"),
@@ -108,7 +113,7 @@ names(filtered_sampling)
 head(filtered_sampling$operation)
 head(filtered_sampling$fish_batch)
 head(filtered_sampling$ind_measure)
-```
+```i
 
 ## Sanitize species code
 
@@ -175,5 +180,21 @@ sanitized <- sanitize_batch_data(
 ## Generate fish size from batch
 
 ```{r}
-ti <- generate_individual_sizes_vectorized(sanitized, verbose = TRUE)
+fish_individual_size <- generate_individual_sizes(sanitized, verbose = TRUE)
+head(fish_individual_size)
+```
+
+## Generate fish weight from size
+
+```{r}
+results <- convert_length_to_weight(
+  fish_data = fish_individual_size,
+  species_ref = species,
+  species_conversion = species_code_conversion_4_length_weight(),
+  default_coefficients = c(a = 0.01, b = 3.03),
+  verbose = TRUE
+ )
+names(results)
+fish_individuals <- results$fish_data
+head(fish_individuals)
 ```

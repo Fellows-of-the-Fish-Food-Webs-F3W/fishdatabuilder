@@ -1,4 +1,4 @@
-#' Replacement vector to replace station.csv column names
+#' Replacement vector to replace column names
 #'
 #'
 #' @return named vector
@@ -6,16 +6,17 @@
 replacement_station_col <- function() {
   c(
     "site_id" = "id",
+    "x" = "coordonnees_x",
+    "y" = "coordonnees_y",
     "sandre_code" = "code_sandre",
     "insee_town_code" = "com_code_insee",
-    "down_km_point" = "point_km_aval",
+    #"down_km_point" = "point_km_aval",
     "precise_location" = "localisation_precise",
-    "body_water_code" = "code_national_masse_eau",
-    "postgis" = "geometrie",
-    "x" = "coordonnees_x",
-    "y" = "coordonnees_y"
+    "body_water_code" = "code_national_masse_eau"
+    #"postgis" = "geometrie",
   )
 }
+#' @rdname replacement_station_col
 replacement_operation_col <- function() {
   c(
     operation_id = "id",
@@ -27,10 +28,12 @@ replacement_operation_col <- function() {
     computed_surface = "surface_calculee"
   )
 }
+#' @rdname replacement_station_col
 replacement_operation_description_col <- function() {
   c(
     operation_id = "ope_id",
     time_fishing = "duree_peche",
+    prospection_method = "prospection_method",
     upstream_isolation = "upstream_isolation",
     downstream_isolation = "downstream_isolation",
     width_river = "largeur_lame_eau",
@@ -43,7 +46,7 @@ replacement_operation_description_col <- function() {
   )
 
 }
-
+#' @rdname replacement_station_col
 replacement_sampling_col <- function() {
   c(
     prelevement_id = "id",
@@ -52,6 +55,7 @@ replacement_sampling_col <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_prospection_label <- function() {
   c(
     by_foot = "A pied",
@@ -60,6 +64,7 @@ replacement_prospection_label <- function() {
     unknown = "Non renseigné"
   )
 }
+#' @rdname replacement_station_col
 replacement_isolation_label <- function() {
   c(
     no_barrier = "Pas d’isolement",
@@ -70,6 +75,7 @@ replacement_isolation_label <- function() {
     others = "Autres"
   )
 }
+#' @rdname replacement_station_col
 replacement_operation_protocol_label <- function() {
     c(
     complete = "Pêche complète à un ou plusieurs passages",
@@ -77,7 +83,7 @@ replacement_operation_protocol_label <- function() {
     partial_over_bank = "Pêche partielle sur berge"
   )
 }
-
+#' @rdname replacement_station_col
 replacement_detail_sampling_label <- function() {
     c(
     passage = "Passage",
@@ -86,6 +92,7 @@ replacement_detail_sampling_label <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_point_type_label <- function() {
   c(
     standard_point = "Points standards",
@@ -93,6 +100,7 @@ replacement_point_type_label <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_species_ref_col <- function() {
   c(
     species_id = "id",
@@ -104,12 +112,14 @@ replacement_species_ref_col <- function() {
 
 }
 
+#' @rdname replacement_station_col
 replacement_length_ref_col <- function() {
   c(
     length_type_id = "id",
     length_type = "libelle"
   )
 }
+#' @rdname replacement_station_col
 replacement_length_type_label <- function() {
   c(
     fork = "Fourche",
@@ -118,6 +128,7 @@ replacement_length_type_label <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_batch_ref_col <- function() {
   c(
     batch_type_id = "id",
@@ -126,6 +137,7 @@ replacement_batch_ref_col <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_batch_col <- function() {
   c(
     batch_id = "id",
@@ -142,6 +154,7 @@ replacement_batch_col <- function() {
   )
 }
 
+#' @rdname replacement_station_col
 replacement_individual_measurement_col <- function() {
   c(
     measure_id = "id",

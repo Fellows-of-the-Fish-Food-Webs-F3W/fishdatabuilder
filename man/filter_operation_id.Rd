@@ -57,7 +57,7 @@ custom_exclusions <- c("Suivi de restauration", "Suivi des populations")
 custom_ids <- filter_operation_id(objective_to_exclude = custom_exclusions)
 
 # Use in filtering other datasets
-filtered_sampling <- sampling_data \%>\%
+filtered_sampling <- sampling_data |>
   filter(operation_id \%in\% filter_operation_id())
 }
 

@@ -82,7 +82,7 @@ for \emph{Zingel} genus in FishBase}
 coeffs <- coefficients_fork2total()
 
 # Apply conversion to a data frame
-fish_data <- fish_data \%>\%
+fish_data <- fish_data |>
   dplyr::mutate(
     total_length = fork_length * coefficients_fork2total()[species_code]
   )
@@ -92,7 +92,7 @@ coeff <- coefficients_fork2total()["PER"]  # Perca fluviatilis
 
 # Convert only species with available coefficients
 species_with_coeff <- names(coefficients_fork2total())
-fish_to_convert <- fish_data \%>\%
+fish_to_convert <- fish_data |>
   dplyr::filter(species_code \%in\% species_with_coeff)
 }
 

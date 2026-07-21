@@ -2,13 +2,55 @@
 % Please edit documentation in R/replace_strings.R
 \name{replacement_station_col}
 \alias{replacement_station_col}
-\title{Replacement vector to replace station.csv column names}
+\alias{replacement_operation_col}
+\alias{replacement_operation_description_col}
+\alias{replacement_sampling_col}
+\alias{replacement_prospection_label}
+\alias{replacement_isolation_label}
+\alias{replacement_operation_protocol_label}
+\alias{replacement_detail_sampling_label}
+\alias{replacement_point_type_label}
+\alias{replacement_species_ref_col}
+\alias{replacement_length_ref_col}
+\alias{replacement_length_type_label}
+\alias{replacement_batch_ref_col}
+\alias{replacement_batch_col}
+\alias{replacement_individual_measurement_col}
+\title{Replacement vector to replace column names}
 \usage{
 replacement_station_col()
+
+replacement_operation_col()
+
+replacement_operation_description_col()
+
+replacement_sampling_col()
+
+replacement_prospection_label()
+
+replacement_isolation_label()
+
+replacement_operation_protocol_label()
+
+replacement_detail_sampling_label()
+
+replacement_point_type_label()
+
+replacement_species_ref_col()
+
+replacement_length_ref_col()
+
+replacement_length_type_label()
+
+replacement_batch_ref_col()
+
+replacement_batch_col()
+
+replacement_individual_measurement_col()
 }
 \value{
 named vector
 }
 \description{
-Replacement vector to replace station.csv column names
+Replacement vector to replace column names
 }
