@@ -223,7 +223,7 @@ NULL
 #' @rdname raw_data_accessors
 #' @details For `get_raw_station_aspe()`: Retrieves station location data including coordinates.
 #' Default file: `"station.csv"`
-#' @export get_raw_station_aspe
+#' @export
 get_raw_station_aspe <- function(file = "station.csv") {
   read_raw_data(file_name = file)
 }
@@ -231,7 +231,7 @@ get_raw_station_aspe <- function(file = "station.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_raw_ref_coordinates_station_aspe()`: Retrieves EPSG code references for coordinate systems.
 #' Default file: `"ref_type_projection.csv"`
-#' @export get_raw_ref_coordinates_station_aspe
+#' @export
 get_raw_ref_coordinates_station_aspe <- function(file = "ref_type_projection.csv") {
   read_raw_data(file_name = file)
 }
@@ -239,7 +239,7 @@ get_raw_ref_coordinates_station_aspe <- function(file = "ref_type_projection.csv
 #' @rdname raw_data_accessors
 #' @details For `get_raw_operation_aspe()`: Retrieves fishing operation metadata.
 #' Default file: `"operation.csv"`
-#' @export get_raw_operation_aspe
+#' @export
 get_raw_operation_aspe <- function(file = "operation.csv") {
   read_raw_data(file_name = file)
 }
@@ -247,7 +247,7 @@ get_raw_operation_aspe <- function(file = "operation.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_ref_objective_operation_aspe()`: Retrieves operation objective reference data.
 #' Default file: `"ref_objectif.csv"`
-#' @export get_ref_objective_operation_aspe
+#' @export
 get_ref_objective_operation_aspe <- function(file = "ref_objectif.csv") {
   read_raw_data(file_name = file)
 }
@@ -255,7 +255,7 @@ get_ref_objective_operation_aspe <- function(file = "ref_objectif.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_ref_protocol_operation_aspe()`: Retrieves sampling protocol reference data.
 #' Default file: `"ref_protocole.csv"`
-#' @export get_ref_protocol_operation_aspe
+#' @export
 get_ref_protocol_operation_aspe <- function(file = "ref_protocole.csv") {
   read_raw_data(file_name = file)
 }
@@ -263,7 +263,7 @@ get_ref_protocol_operation_aspe <- function(file = "ref_protocole.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_ref_isolation_operation_aspe()`: Retrieves barrier isolation type reference data.
 #' Default file: `"ref_isolement.csv"`
-#' @export get_ref_isolation_operation_aspe
+#' @export
 get_ref_isolation_operation_aspe <- function(file = "ref_isolement.csv") {
   read_raw_data(file_name = file)
 }
@@ -271,7 +271,7 @@ get_ref_isolation_operation_aspe <- function(file = "ref_isolement.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_ref_prospection_method_operation_aspe()`: Retrieves prospection method reference data.
 #' Default file: `"ref_moyen_prospection.csv"`
-#' @export get_ref_prospection_method_operation_aspe
+#' @export
 get_ref_prospection_method_operation_aspe <- function(file = "ref_moyen_prospection.csv") {
   read_raw_data(file_name = file)
 }
@@ -279,6 +279,7 @@ get_ref_prospection_method_operation_aspe <- function(file = "ref_moyen_prospect
 #' @rdname raw_data_accessors
 #' @details For `get_objective_operation_aspe()`: Retrieves operation-objective relationship data.
 #' Default file: `"operation_objectif.csv"`
+#' @export
 get_objective_operation_aspe <- function(file = "operation_objectif.csv") {
   read_raw_data(file_name = file)
 }
@@ -286,7 +287,7 @@ get_objective_operation_aspe <- function(file = "operation_objectif.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_sampling_point_aspe()`: Retrieves sampling point location data.
 #' Default file: `"point_prelevement.csv"`
-#' @export get_sampling_point_aspe
+#' @export
 get_sampling_point_aspe <- function(file = "point_prelevement.csv") {
   read_raw_data(file_name = file)
 }
@@ -294,7 +295,7 @@ get_sampling_point_aspe <- function(file = "point_prelevement.csv") {
 #' @rdname raw_data_accessors
 #' @details For `get_description_operation_aspe()`: Retrieves detailed fishing operation descriptions.
 #' Default file: `"operation_description_peche.csv"`
-#' @export get_description_operation_aspe
+#' @export
 get_description_operation_aspe <- function(file = "operation_description_peche.csv") {
   read_raw_data(file_name = file)
 }
@@ -302,7 +303,7 @@ get_description_operation_aspe <- function(file = "operation_description_peche.c
 #' @rdname raw_data_accessors
 #' @details For `get_elementary_sampling_aspe()`: Retrieves detailed fishing sampling protocol.
 #' Default file: `"prelevement_elementaire.csv"`
-#' @export get_elementary_sampling_aspe
+#' @export
 get_elementary_sampling_aspe <- function(file = "prelevement_elementaire.csv") {
   read_raw_data(file_name = file)
 }
