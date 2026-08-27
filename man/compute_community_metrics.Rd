@@ -21,8 +21,9 @@ A tibble with one row per sampling operation and nine columns:
 \item \code{operation_id}: sampling operation identifier.
 \item \code{total_richness}: number of unique species.
 \item \code{total_abundance}: total number of individuals.
-\item \code{total_biomass_g}: total biomass in grams. Missing individual
-weights are excluded from the sum.
+\item \code{total_biomass_g}: total biomass in grams. Individuals with missing
+or zero weights do not contribute to biomass calculations but remain
+included in richness and abundance calculations.
 \item \code{richness_per_m2}: species richness divided by sampled surface area.
 Returns \code{NA} when sampled surface is missing, non-finite, or <= 0.
 \item \code{abundance_per_m2}: abundance divided by sampled surface area.
@@ -44,23 +45,25 @@ tibbles.
 \details{
 Only operations represented in \code{fish_data} are returned.
 
-Missing values in \code{weight_g} are excluded from biomass calculations and
-generate a warning. Zero values in \code{weight_g} are retained in biomass
-calculations and also generate a warning.
+Individuals with missing \code{weight_g} values are retained when computing
+species richness and abundance but are excluded from biomass calculations.
+Individuals with zero \code{weight_g} values are retained in all calculations
+and contribute zero to biomass. A warning reports the number of individuals
+with missing or zero weights.
 
 Total richness, abundance, and biomass are calculated independently of
 sampled surface area. When \code{computed_surface} is missing, non-finite, or
 less than or equal to zero, surface-standardized metrics are returned as
-\code{NA}.
+\code{NA}. A warning reports the number of affected operations.
 }
 \examples{
-fish_data <- tibble::tibble(
+fish_data <- data.frame(
   operation_id = c(1, 1, 1, 2),
   species_code = c("AAA", "AAA", "BBB", "AAA"),
   weight_g = c(10, 15, NA, 0)
 )
 
-operation <- tibble::tibble(
+operation <- data.frame(
   operation_id = c(1, 2),
   computed_surface = c(100, 0)
 )

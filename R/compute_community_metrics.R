@@ -17,8 +17,9 @@
 #'     \item `operation_id`: sampling operation identifier.
 #'     \item `total_richness`: number of unique species.
 #'     \item `total_abundance`: total number of individuals.
-#'     \item `total_biomass_g`: total biomass in grams. Missing individual
-#'       weights are excluded from the sum.
+#'     \item `total_biomass_g`: total biomass in grams. Individuals with missing
+#'       or zero weights do not contribute to biomass calculations but remain
+#'       included in richness and abundance calculations.
 #'     \item `richness_per_m2`: species richness divided by sampled surface area.
 #'       Returns `NA` when sampled surface is missing, non-finite, or <= 0.
 #'     \item `abundance_per_m2`: abundance divided by sampled surface area.
@@ -34,23 +35,25 @@
 #' @details
 #' Only operations represented in `fish_data` are returned.
 #'
-#' Missing values in `weight_g` are excluded from biomass calculations and
-#' generate a warning. Zero values in `weight_g` are retained in biomass
-#' calculations and also generate a warning.
+#' Individuals with missing `weight_g` values are retained when computing
+#' species richness and abundance but are excluded from biomass calculations.
+#' Individuals with zero `weight_g` values are retained in all calculations
+#' and contribute zero to biomass. A warning reports the number of individuals
+#' with missing or zero weights.
 #'
 #' Total richness, abundance, and biomass are calculated independently of
 #' sampled surface area. When `computed_surface` is missing, non-finite, or
 #' less than or equal to zero, surface-standardized metrics are returned as
-#' `NA`.
+#' `NA`. A warning reports the number of affected operations.
 #'
 #' @examples
-#' fish_data <- tibble::tibble(
+#' fish_data <- data.frame(
 #'   operation_id = c(1, 1, 1, 2),
 #'   species_code = c("AAA", "AAA", "BBB", "AAA"),
 #'   weight_g = c(10, 15, NA, 0)
 #' )
 #'
-#' operation <- tibble::tibble(
+#' operation <- data.frame(
 #'   operation_id = c(1, 2),
 #'   computed_surface = c(100, 0)
 #' )
@@ -68,14 +71,19 @@ compute_community_metrics <- function(
     operation
 ) {
 
-  # Input validation ----------------------------------------------------------
-
+  #Input validation
   if (!is.data.frame(fish_data)) {
-    stop("fish_data must be a data frame.", call. = FALSE)
+    stop(
+      "fish_data must be a data frame.",
+      call. = FALSE
+    )
   }
 
   if (!is.data.frame(operation)) {
-    stop("operation must be a data frame.", call. = FALSE)
+    stop(
+      "operation must be a data frame.",
+      call. = FALSE
+    )
   }
 
   required_fish_cols <- c(
@@ -129,10 +137,12 @@ compute_community_metrics <- function(
     )
   }
 
-  # Check fish weights --------------------------------------------------------
-
+  #Check fish weights
   n_missing_weight <- sum(is.na(fish_data$weight_g))
-  n_zero_weight <- sum(fish_data$weight_g == 0, na.rm = TRUE)
+  n_zero_weight <- sum(
+    fish_data$weight_g == 0,
+    na.rm = TRUE
+  )
 
   if (n_missing_weight > 0 || n_zero_weight > 0) {
 
@@ -143,8 +153,9 @@ compute_community_metrics <- function(
         warning_parts,
         paste0(
           n_missing_weight,
-          " missing value(s) in fish_data$weight_g will be excluded ",
-          "from biomass calculations"
+          " individual(s) have missing values in fish_data$weight_g. ",
+          "These individuals are retained in richness and abundance ",
+          "calculations but are excluded from biomass calculations"
         )
       )
     }
@@ -154,7 +165,9 @@ compute_community_metrics <- function(
         warning_parts,
         paste0(
           n_zero_weight,
-          " zero value(s) found in fish_data$weight_g"
+          " individual(s) have zero values in fish_data$weight_g. ",
+          "These individuals are retained in richness and abundance ",
+          "calculations and contribute zero to biomass"
         )
       )
     }
@@ -166,8 +179,7 @@ compute_community_metrics <- function(
     )
   }
 
-  # Prepare sampled surface information --------------------------------------
-
+  #Prepare sampled surface information
   operation_surface <- operation |>
     dplyr::select(
       operation_id,
@@ -184,7 +196,10 @@ compute_community_metrics <- function(
   if (length(duplicated_operations) > 0) {
     stop(
       "operation contains duplicated operation_id values: ",
-      paste(unique(duplicated_operations), collapse = ", "),
+      paste(
+        unique(duplicated_operations),
+        collapse = ", "
+      ),
       call. = FALSE
     )
   }
@@ -197,13 +212,36 @@ compute_community_metrics <- function(
   if (length(missing_operations) > 0) {
     stop(
       "No computed_surface found for operation_id: ",
-      paste(missing_operations, collapse = ", "),
+      paste(
+        missing_operations,
+        collapse = ", "
+      ),
       call. = FALSE
     )
   }
 
-  # Compute species-level metrics --------------------------------------------
+  #Check sampled surfaces
+  invalid_surface <- operation_surface |>
+    dplyr::filter(
+      is.na(computed_surface) |
+        !is.finite(computed_surface) |
+        computed_surface <= 0
+    )
 
+  n_invalid_surface <- nrow(invalid_surface)
+
+  if (n_invalid_surface > 0) {
+    warning(
+      n_invalid_surface,
+      " operation(s) have missing, non-finite, or non-positive ",
+      "computed_surface values. Surface-standardized metrics ",
+      "(`richness_per_m2`, `abundance_per_m2`, and `biomass_g_per_m2`) ",
+      "will be returned as NA for these operations.",
+      call. = FALSE
+    )
+  }
+
+  #Compute species-level metrics
   species_metrics <- fish_data |>
     dplyr::group_by(
       operation_id,
@@ -211,7 +249,10 @@ compute_community_metrics <- function(
     ) |>
     dplyr::summarise(
       total_abundance = dplyr::n(),
-      total_biomass_g = sum(weight_g, na.rm = TRUE),
+      total_biomass_g = sum(
+        weight_g,
+        na.rm = TRUE
+      ),
       .groups = "drop"
     ) |>
     dplyr::left_join(
@@ -239,8 +280,7 @@ compute_community_metrics <- function(
       species_code
     )
 
-  # Create nested species-level abundance metrics ----------------------------
-
+  #Create nested species-level abundance metrics
   abundance_by_species <- species_metrics |>
     dplyr::select(
       operation_id,
@@ -257,8 +297,7 @@ compute_community_metrics <- function(
       .by = operation_id
     )
 
-  # Create nested species-level biomass metrics -------------------------------
-
+  # Create nested species-level biomass metrics
   biomass_by_species <- species_metrics |>
     dplyr::select(
       operation_id,
@@ -275,8 +314,7 @@ compute_community_metrics <- function(
       .by = operation_id
     )
 
-  # Compute community-level metrics ------------------------------------------
-
+  #Compute community-level metrics
   community_metrics <- species_metrics |>
     dplyr::group_by(operation_id) |>
     dplyr::summarise(
