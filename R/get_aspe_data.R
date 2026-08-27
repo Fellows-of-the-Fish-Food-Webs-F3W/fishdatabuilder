@@ -91,7 +91,7 @@ extract_optional_data <- function(packagename = "fishdatabuilder") {
 #' local package cache. You can access these files with
 #' optional_filepath().
 #'
-#' @inheritParams pkgfilecache::get_pkg_info packagename
+#' @inheritParams pkgfilecache::get_pkg_info
 #'
 #' @return vector of strings. The file names available, relative to the package
 #' cache.
