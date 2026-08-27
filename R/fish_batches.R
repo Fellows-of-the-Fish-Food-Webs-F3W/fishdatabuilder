@@ -20,21 +20,21 @@
 #'
 #' @details
 #' The function processes each batch type differently:
-#' 
+#'
 #' **Type G (Group)**: Generates sizes from a truncated normal distribution with:
 #'   - Lower bound: 0 mm
 #'   - Upper bound: Species maximum length (`max_length_mm`)
 #'   - Mean: Batch minimum length
 #'   - Standard deviation: (Species max - Batch min) / 4
-#' 
+#'
 #' **Type S/L (Size/Length)**: Uses measured individuals to estimate distribution:
 #'   - Lower bound: 0 mm
 #'   - Upper bound: Species maximum length
 #'   - Mean: Mean of measured individuals
 #'   - Standard deviation: SD of measured individuals
-#' 
+#'
 #' **Type I (Individual)**: Uses directly measured individuals
-#' 
+#'
 #' **Type N (Not measured)**: Single individual from measurements
 #'
 #' The function adds a `measured` column to distinguish between:
@@ -52,14 +52,14 @@
 #' fish_batch_clean <- clean_fish_batch()
 #' ind_measure_clean <- clean_individual_measurement_aspe()
 #' species_ref <- cleaning_species_ref_aspe()
-#' 
+#'
 #' # Sanitize
 #' sanitized <- sanitize_batch_data(
-#'   fish_batch_clean, 
+#'   fish_batch_clean,
 #'   ind_measure_clean,
 #'   species_ref
 #' )
-#' 
+#'
 #' # Generate individual sizes
 #' individual_fish <- generate_individual_sizes(sanitized, seed = 123)
 #' }
@@ -87,7 +87,7 @@ generate_individual_sizes <- function(
     stop("sanitized$fish_batch must contain 'maximal_length_mm' column from species reference",
       call. = FALSE)
   }
- 
+
   if (!requireNamespace("truncdist", quietly = TRUE)) {
     stop("Package 'truncdist' is required", call. = FALSE)
   }
@@ -105,7 +105,7 @@ generate_individual_sizes <- function(
   if (nrow(batch_G) > 0) {
     n_per_batch <- batch_G$number
     total_n <- sum(n_per_batch)
- 
+
     # Pre-allocate all vectors
     sizes <- numeric(total_n)
     measured <- logical(total_n)
@@ -126,7 +126,7 @@ generate_individual_sizes <- function(
       # Fill measured flag (direct assignment without rep)
       measured[idx_range] <- FALSE  # Default to FALSE for all
       measured[pos:(pos + 1)] <- TRUE          # First and second are min and max (measured)
-      
+
       # Fill sizes
       sizes[idx_range] <- c(
         batch_G$min_length[i], # Min (measured)
@@ -184,11 +184,11 @@ generate_individual_sizes <- function(
       n_total <- n_per_batch[i]
       n_measured <- batch_SL$n_measured[i]
       idx_range <- pos:(pos + n_total - 1)
-      
+
       # Fill batch metadata
       batch_ids[idx_range] <- batch_SL$batch_id[i]
       species_codes[idx_range] <- batch_SL$species_code[i]
-      
+
       # Fill measured flag
       measured[idx_range] <- FALSE  # Default to FALSE
       measured[pos:(pos + n_measured - 1)] <- TRUE  # First n_measured are TRUE
@@ -326,12 +326,12 @@ generate_dist_from_sample <- function(n, max_length, mean, sd) {
 #' Ensures data quality before individual fish size generation.
 #'
 #' @param fish_batch A data frame containing fish batch data (from `clean_fish_batch()`).
-#'   Expected columns: `batch_id`, `batch_type`, `number`, `species_code`, 
+#'   Expected columns: `batch_id`, `batch_type`, `number`, `species_code`,
 #'   `min_length`, `max_length`
-#' @param ind_measure A data frame containing individual fish measurements 
+#' @param ind_measure A data frame containing individual fish measurements
 #'   (from `clean_individual_measurement_aspe()`).
 #'   Expected columns: `batch_id`, `size`
-#' @inheritParams remove_impossible_lengths species_ref
+#' @inheritParams remove_impossible_lengths
 #' @param min_individuals_G Integer. Minimum number of individuals required for
 #'   type "G" batches to generate reliable distributions. Default is 5.
 #' @param min_individuals_SL Integer. Minimum number of measured individuals required
@@ -375,16 +375,16 @@ generate_dist_from_sample <- function(n, max_length, mean, sd) {
 #' # After running cleaning functions
 #' fish_batch_clean <- clean_fish_batch()
 #' ind_measure_clean <- clean_individual_measurement_aspe()
-#' 
+#'
 #' # Sanitize batch data
 #' sanitized <- sanitize_batch_data(fish_batch_clean, ind_measure_clean)
-#' 
+#'
 #' # Inspect any issues
 #' print(sanitized$validation_issues)
-#' 
+#'
 #' # Use with custom thresholds
 #' sanitized_strict <- sanitize_batch_data(
-#'   fish_batch_clean, 
+#'   fish_batch_clean,
 #'   ind_measure_clean,
 #'   min_individuals_G = 10,
 #'   min_individuals_SL = 20
@@ -411,7 +411,7 @@ sanitize_batch_data <- function(
   }
 
   # Check required columns in fish_batch
-  required_batch_cols <- c("batch_id", "batch_type", "number", "species_code", 
+  required_batch_cols <- c("batch_id", "batch_type", "number", "species_code",
     "min_length", "max_length")
   missing_batch_cols <- setdiff(required_batch_cols, names(fish_batch))
   if (length(missing_batch_cols) > 0) {
@@ -474,7 +474,7 @@ sanitize_batch_data <- function(
       filtering_log <- rbind(filtering_log, data.frame(
         step = "type_validation",
         records_removed = nrow(invalid_types),
-        reason = paste("Invalid batch types:", 
+        reason = paste("Invalid batch types:",
           paste(unique(invalid_types$batch_type), collapse = ", ")),
         stringsAsFactors = FALSE
       ))
