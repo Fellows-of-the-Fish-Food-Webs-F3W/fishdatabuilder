@@ -73,7 +73,7 @@ species_ref <- cleaning_species_ref_aspe()
 
 # Sanitize
 sanitized <- sanitize_batch_data(
-  fish_batch_clean, 
+  fish_batch_clean,
   ind_measure_clean,
   species_ref
 )

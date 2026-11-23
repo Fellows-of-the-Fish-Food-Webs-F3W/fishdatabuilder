@@ -8,6 +8,7 @@ remove_impossible_lengths(
   ind_measure,
   fish_batch,
   species_ref,
+  minimum_length_mm = 15,
   remove_outliers = TRUE
 )
 }
@@ -22,6 +23,9 @@ Must contain columns: \code{batch_id}, \code{species_code}, \code{batch_type},
 \item{species_ref}{A data frame containing species reference data.
 Must contain columns: \code{species_code}, \code{maximal_length_mm}.}
 
+\item{minimum_length_mm}{A numeric value indicating the minimum length for fishes in milimeter.
+Default set to 15.}
+
 \item{remove_outliers}{Logical. If \code{TRUE}, replaces impossible lengths with NA.
 If \code{FALSE}, only flags them. Default is \code{TRUE}.}
 }
@@ -35,23 +39,25 @@ A list containing:
 }
 }
 \description{
-Identifies and removes or flags fish length measurements that exceed known
-maximum lengths for the species. Also reconciles batch-level length statistics
-with individual measurements for S/L batches.
+Identifies and removes or flags fish length measurements that are below
+known length for electrofishing and identification or exceed known
+maximum lengths for the species. Also reconciles batch-level length
+statistics with individual measurements for S/L batches.
 }
 \details{
 The function performs two main validation steps:
 
 \strong{1. Individual measurement validation}
 \itemize{
-\item Compares each measurement against species-specific maximum length
-\item Flags or removes measurements exceeding the maximum
+\item Compares each measurement against species-specific maximum length and
+global minimum length
+\item Flags or removes measurements exceeding the minimum or maximum
 }
 
 \strong{2. Batch-level validation for S/L batches}
 \itemize{
 \item For batches with "S/L" type, recalculates min/max from individual measurements
 \item Ensures batch-level statistics are consistent with individual data
-\item Validates batch min/max against species maximum lengths
+\item Validates batch min/max against global minimum length and species maximum lengths
 }
 }
