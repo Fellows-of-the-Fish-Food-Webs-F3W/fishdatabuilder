@@ -6,6 +6,8 @@
 #'
 #' @param sanitized Output from `sanitize_batch_data()` (list with fish_batch and ind_measure)
 #'   Must contain `maximal_length_mm` column in fish_batch (species maximum lengths)
+#' @param minimum_length_mm A numeric value indicating the minimum length for fishes in milimeter.
+#'   Default set to 15. See remove_impossible_lengths
 #' @param seed Optional integer for reproducible random number generation
 #' @param verbose Logical. If TRUE, prints progress messages.
 #'
@@ -22,13 +24,13 @@
 #' The function processes each batch type differently:
 #'
 #' **Type G (Group)**: Generates sizes from a truncated normal distribution with:
-#'   - Lower bound: 0 mm
+#'   - Lower bound: Global minimum length (`minimum_length_mm`)
 #'   - Upper bound: Species maximum length (`max_length_mm`)
 #'   - Mean: Batch minimum length
 #'   - Standard deviation: (Species max - Batch min) / 4
 #'
 #' **Type S/L (Size/Length)**: Uses measured individuals to estimate distribution:
-#'   - Lower bound: 0 mm
+#'   - Lower bound: Global minimum length (`minimum_length_mm`)
 #'   - Upper bound: Species maximum length
 #'   - Mean: Mean of measured individuals
 #'   - Standard deviation: SD of measured individuals
@@ -70,6 +72,7 @@
 #' @export
 generate_individual_sizes <- function(
   sanitized,
+  minimum_length_mm = 15,
   seed = NULL,
   verbose = TRUE
 ) {
@@ -133,6 +136,7 @@ generate_individual_sizes <- function(
         batch_G$max_length[i], # Max (measured)
         generate_dist_from_min_max( # Imputed (non-measured)
           n = n_imputed,
+          min_length = minimum_length_mm,
           max_length = batch_G$maximal_length_mm[i],
           min = batch_G$min_length[i],
           max = batch_G$max_length[i]
@@ -199,10 +203,11 @@ generate_individual_sizes <- function(
       sizes[pos:(pos + n_total - 1)] <- c(
         batch_SL$measured_sizes[[i]],
         generate_dist_from_sample(
-        n = n_imputed,
-        max_length = batch_SL$maximal_length_mm[i],
-        mean = batch_SL$mean_size[i],
-        sd = batch_SL$sd_size[i]
+          n = n_imputed,
+          min_length = minimum_length_mm,
+          max_length = batch_SL$maximal_length_mm[i],
+          mean = batch_SL$mean_size[i],
+          sd = batch_SL$sd_size[i]
         )
       )
       pos <- pos + n_total
@@ -292,11 +297,11 @@ generate_individual_sizes <- function(
 #'
 #' @keywords internal
 #' @noRd
-generate_dist_from_min_max <- function(n, max_length, min, max) {
+generate_dist_from_min_max <- function(n, min_length, max_length, min, max) {
   truncdist::rtrunc(
     n = n,
     spec = "norm",
-    a = 0,
+    a = min_length,
     b = max_length,  # Use species max, not batch max
     mean = (min + max) / 2,
     sd = (max - min) / 4
@@ -308,11 +313,11 @@ generate_dist_from_min_max <- function(n, max_length, min, max) {
 #'
 #' @keywords internal
 #' @noRd
-generate_dist_from_sample <- function(n, max_length, mean, sd) {
+generate_dist_from_sample <- function(n, min_length, max_length, mean, sd) {
   truncdist::rtrunc(
     n = n,
     spec = "norm",
-    a = 0,
+    a = min_length,
     b = max_length,
     mean = mean,
     sd = sd

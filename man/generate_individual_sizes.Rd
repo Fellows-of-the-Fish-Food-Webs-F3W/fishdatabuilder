@@ -4,11 +4,19 @@
 \alias{generate_individual_sizes}
 \title{Generate individual fish sizes from sanitized batch data}
 \usage{
-generate_individual_sizes(sanitized, seed = NULL, verbose = TRUE)
+generate_individual_sizes(
+  sanitized,
+  minimum_length_mm = 15,
+  seed = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{sanitized}{Output from \code{sanitize_batch_data()} (list with fish_batch and ind_measure)
 Must contain \code{maximal_length_mm} column in fish_batch (species maximum lengths)}
+
+\item{minimum_length_mm}{A numeric value indicating the minimum length for fishes in milimeter.
+Default set to 15. See remove_impossible_lengths}
 
 \item{seed}{Optional integer for reproducible random number generation}
 
@@ -33,7 +41,7 @@ The function processes each batch type differently:
 
 \strong{Type G (Group)}: Generates sizes from a truncated normal distribution with:
 \itemize{
-\item Lower bound: 0 mm
+\item Lower bound: Global minimum length (\code{minimum_length_mm})
 \item Upper bound: Species maximum length (\code{max_length_mm})
 \item Mean: Batch minimum length
 \item Standard deviation: (Species max - Batch min) / 4
@@ -41,7 +49,7 @@ The function processes each batch type differently:
 
 \strong{Type S/L (Size/Length)}: Uses measured individuals to estimate distribution:
 \itemize{
-\item Lower bound: 0 mm
+\item Lower bound: Global minimum length (\code{minimum_length_mm})
 \item Upper bound: Species maximum length
 \item Mean: Mean of measured individuals
 \item Standard deviation: SD of measured individuals
