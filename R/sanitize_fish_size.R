@@ -203,7 +203,7 @@ convert_fork_to_total <- function(
 #' @return A list containing:
 #'   \itemize{
 #'     \item `ind_measure`: Updated individual measurements with flagged/removed outliers
-#'     \item `fish_batch`: Updated batch data with reconciled length statistics
+#'     \item `fish_batch`: Updated batch data with reconciled length statistics and flagged/removed outliers
 #'     \item `outliers`: Data frame of detected outliers
 #'     \item `outlier_summary`: Summary statistics of removed values
 #'   }
@@ -216,10 +216,10 @@ convert_fork_to_total <- function(
 #'   global minimum length
 #'   - Flags or removes measurements exceeding the minimum or maximum
 #'
-#' **2. Batch-level validation for S/L batches**
+#' **2. Batch-level validation for S/L & G batches**
 #'   - For batches with "S/L" type, recalculates min/max from individual measurements
 #'   - Ensures batch-level statistics are consistent with individual data
-#'   - Validates batch min/max against global minimum length and species maximum lengths
+#'   - For batches with "S/L" or "G" type, flags or removes batch min/max exceeding global minimum length or species maximum lengths
 #'
 #' @importFrom dplyr filter left_join group_by summarise mutate bind_rows
 #' @importFrom rlang .data
@@ -264,6 +264,11 @@ remove_impossible_lengths <- function(
       dplyr::select(species_ref, species_code, maximal_length_mm),
       by = "species_code"
     )
+  fish_batch <- fish_batch |>
+    dplyr::left_join(
+      dplyr::select(species_ref, species_code, maximal_length_mm),
+      by = "species_code"
+    )
 
   # Check for missing max lengths
   missing_max <- ind_measure |>
@@ -279,11 +284,19 @@ remove_impossible_lengths <- function(
   }
 
   # B. Identify outliers
-  outliers <- ind_measure |>
+  outliers_ind <- ind_measure |>
     dplyr::filter(
       !is.na(size), !is.na(maximal_length_mm),
       (size > maximal_length_mm | size < minimum_length_mm)
     )
+  outliers_batch <- fish_batch |>
+    dplyr::filter(
+      !is.na(min_length), !is.na(max_length), !is.na(maximal_length_mm),
+      (min_length > maximal_length_mm | max_length > maximal_length_mm |
+        min_length < minimum_length_mm | max_length < minimum_length_mm
+      )
+    )
+
 
   # C. Handle outliers
   if (remove_outliers) {
@@ -295,8 +308,24 @@ remove_impossible_lengths <- function(
           size
         )
       )
+    fish_batch_cleaned <- fish_batch |>
+      dplyr::mutate(
+        min_length = dplyr::if_else(
+          (min_length > maximal_length_mm | min_length < minimum_length_mm) &
+            !is.na(minimum_length_mm) & !is.na(maximal_length_mm),
+          NA_real_,
+          min_length
+        ),
+        max_length = dplyr::if_else(
+          (max_length > maximal_length_mm | max_length < minimum_length_mm) &
+            !is.na(minimum_length_mm) & !is.na(maximal_length_mm),
+          NA_real_,
+          max_length
+        )
+      )
 
-    outlier_summary <- outliers |>
+
+    outlier_summary <- outliers_ind |>
       dplyr::group_by(species_code) |>
       dplyr::summarise(
         n_outliers = dplyr::n(),
@@ -305,6 +334,7 @@ remove_impossible_lengths <- function(
       )
   } else {
     ind_measure_cleaned <- ind_measure
+    fish_batch_cleaned <- fish_batch
     outlier_summary <- data.frame()
   }
 
@@ -332,7 +362,7 @@ remove_impossible_lengths <- function(
       ) |>
       dplyr::select(-min_size, -max_size)
 
-    fish_batch_updated <- fish_batch |>
+    fish_batch_updated <- fish_batch_cleaned |>
       dplyr::filter(batch_type != "S/L") |>
       dplyr::bind_rows(sl_batches_updated)
   } else {
@@ -340,13 +370,14 @@ remove_impossible_lengths <- function(
   }
 
   # E. Validate batch-level outliers
-  fish_batch_updated <- fish_batch_updated |>
-    dplyr::left_join(
-      dplyr::select(species_ref, species_code, maximal_length_mm),
-      by = "species_code"
-    )
+  # can be removed because of batch check above
+  # fish_batch_updated <- fish_batch_updated |>
+  #   dplyr::left_join(
+  #     dplyr::select(species_ref, species_code, maximal_length_mm),
+  #     by = "species_code"
+  #   )
 
-  batch_outliers <- fish_batch_updated |>
+  batch_outliers <- fish_batch |>
     dplyr::filter(
       (max_length > maximal_length_mm & !is.na(max_length)) |
         (min_length > maximal_length_mm & !is.na(min_length)) |
@@ -362,7 +393,7 @@ remove_impossible_lengths <- function(
   list(
     ind_measure = ind_measure_cleaned |> dplyr::select(-maximal_length_mm),
     fish_batch = fish_batch_updated |> dplyr::select(-maximal_length_mm),
-    outliers = outliers,
+    outliers = outliers_ind,
     outlier_summary = outlier_summary,
     batch_outliers = batch_outliers
   )

@@ -33,7 +33,7 @@ If \code{FALSE}, only flags them. Default is \code{TRUE}.}
 A list containing:
 \itemize{
 \item \code{ind_measure}: Updated individual measurements with flagged/removed outliers
-\item \code{fish_batch}: Updated batch data with reconciled length statistics
+\item \code{fish_batch}: Updated batch data with reconciled length statistics and flagged/removed outliers
 \item \code{outliers}: Data frame of detected outliers
 \item \code{outlier_summary}: Summary statistics of removed values
 }
@@ -54,10 +54,10 @@ global minimum length
 \item Flags or removes measurements exceeding the minimum or maximum
 }
 
-\strong{2. Batch-level validation for S/L batches}
+\strong{2. Batch-level validation for S/L & G batches}
 \itemize{
 \item For batches with "S/L" type, recalculates min/max from individual measurements
 \item Ensures batch-level statistics are consistent with individual data
-\item Validates batch min/max against global minimum length and species maximum lengths
+\item For batches with "S/L" or "G" type, flags or removes batch min/max exceeding global minimum length or species maximum lengths
 }
 }

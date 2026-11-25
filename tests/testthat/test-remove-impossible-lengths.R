@@ -27,6 +27,41 @@ test_that("remove_impossible_lengths identifies outliers correctly", {
   expect_true(is.na(cleaned_sizes[9]))
 })
 
+test_that("remove_impossible_lengths handles outliers in batches", {
+  test_data <- create_test_length_data()
+
+  # Add outliers that affect G batch min_length
+  test_data$fish_batch[, c("batch_type", "min_length")][1, ] <- list("G", 10) # minimum size is 15
+  test_data$fish_batch[, c("batch_type", "min_length")][4, ] <- list("G", 700) # PER max 600
+
+  result <- remove_impossible_lengths(
+    ind_measure = test_data$ind_measure,
+    fish_batch = test_data$fish_batch,
+    species_ref = test_data$species_ref,
+    minimum_length_mm = 15,
+    remove_outliers = TRUE
+  )
+
+  # Check batch 1 and 4 have been set to NA
+  mask_batch <- result$fish_batch$batch_id %in% c(1, 4)
+  expect_all_true(result$fish_batch[mask_batch, ]$min_length |> is.na())
+
+  # Test for maximum length
+  # Add outliers that affect G batch max_length
+  test_data <- create_test_length_data()
+  test_data$fish_batch[, c("batch_type", "max_length")][1, ] <- list("G", 10) # minimum size is 15
+  test_data$fish_batch[, c("batch_type", "max_length")][4, ] <- list("G", 700) # PER max 600
+  result <- remove_impossible_lengths(
+    ind_measure = test_data$ind_measure,
+    fish_batch = test_data$fish_batch,
+    species_ref = test_data$species_ref,
+    minimum_length_mm = 15,
+    remove_outliers = TRUE
+  )
+  mask_batch <- result$fish_batch$batch_id %in% c(1, 4)
+  expect_all_true(result$fish_batch[mask_batch, ]$max_length |> is.na())
+})
+
 test_that("remove_impossible_lengths reconciles S/L batches", {
   test_data <- create_test_length_data()
 
