@@ -6,7 +6,7 @@
 \usage{
 generate_individual_sizes(
   sanitized,
-  minimum_length_mm = 15,
+  minimum_length_mm = NULL,
   seed = NULL,
   verbose = TRUE
 )
@@ -16,7 +16,7 @@ generate_individual_sizes(
 Must contain \code{maximal_length_mm} column in fish_batch (species maximum lengths)}
 
 \item{minimum_length_mm}{A numeric value indicating the minimum length for fishes in milimeter.
-Default set to 15. See remove_impossible_lengths}
+Default set to NULL so the minimum is the minimum size found in sanitized data minus 1. See \code{remove_impossible_lengths()}}
 
 \item{seed}{Optional integer for reproducible random number generation}
 

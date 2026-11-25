@@ -207,7 +207,6 @@ test_that("generate_individual_sizes handles edge cases", {
   )
   result <- generate_individual_sizes(empty_sanitized, verbose = FALSE)
   expect_equal(nrow(result), 0)
-  # expect_named(result, c("batch_id", "species_code", "size_mm"))
 
   # Single batch
   single_batch <- list(

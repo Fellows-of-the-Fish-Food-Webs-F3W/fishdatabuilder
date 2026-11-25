@@ -370,14 +370,7 @@ remove_impossible_lengths <- function(
   }
 
   # E. Validate batch-level outliers
-  # can be removed because of batch check above
-  # fish_batch_updated <- fish_batch_updated |>
-  #   dplyr::left_join(
-  #     dplyr::select(species_ref, species_code, maximal_length_mm),
-  #     by = "species_code"
-  #   )
-
-  batch_outliers <- fish_batch |>
+  batch_outliers <- fish_batch_updated |>
     dplyr::filter(
       (max_length > maximal_length_mm & !is.na(max_length)) |
         (min_length > maximal_length_mm & !is.na(min_length)) |

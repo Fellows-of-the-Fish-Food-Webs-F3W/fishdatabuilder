@@ -7,7 +7,7 @@
 #' @param sanitized Output from `sanitize_batch_data()` (list with fish_batch and ind_measure)
 #'   Must contain `maximal_length_mm` column in fish_batch (species maximum lengths)
 #' @param minimum_length_mm A numeric value indicating the minimum length for fishes in milimeter.
-#'   Default set to 15. See remove_impossible_lengths
+#'   Default set to NULL so the minimum is the minimum size found in sanitized data minus 1. See `remove_impossible_lengths()`
 #' @param seed Optional integer for reproducible random number generation
 #' @param verbose Logical. If TRUE, prints progress messages.
 #'
@@ -72,7 +72,7 @@
 #' @export
 generate_individual_sizes <- function(
   sanitized,
-  minimum_length_mm = 15,
+  minimum_length_mm = NULL,
   seed = NULL,
   verbose = TRUE
 ) {
@@ -89,6 +89,18 @@ generate_individual_sizes <- function(
   if (!"maximal_length_mm" %in% names(fish_batch)) {
     stop("sanitized$fish_batch must contain 'maximal_length_mm' column from species reference",
       call. = FALSE)
+  }
+
+  if (is.null(minimum_length_mm)) {
+    size_data <- c(
+      fish_batch$min_length,
+      fish_batch$max_length,
+      ind_measure$size)
+    if (sum(!is.na(size_data)) == 0) {
+      minimum_length_mm <- 0
+    } else{
+      minimum_length_mm <- min( size_data, na.rm = TRUE) - 1
+    }
   }
 
   if (!requireNamespace("truncdist", quietly = TRUE)) {

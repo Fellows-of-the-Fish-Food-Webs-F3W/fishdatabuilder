@@ -333,7 +333,7 @@ sanitized$fish_batch |>
 ## Generate fish size from batch
 
 ```{r}
-fish_individual_size <- generate_individual_sizes(sanitized, minimum_length_mm = 14, verbose = TRUE)
+fish_individual_size <- generate_individual_sizes(sanitized, verbose = TRUE)
 
 fish_individual_size |>
   filter(species_code == "CHP")
@@ -348,7 +348,7 @@ fish <- readr::read_csv(
   here::here("data-raw", "fish_individual_size.csv")
 )
 fish |>
-  filter(size_mm <= 15, measured) |>
+  filter(size_mm < 15, measured) |>
   arrange(operation_id)  |>
   print(n = 60)
 
