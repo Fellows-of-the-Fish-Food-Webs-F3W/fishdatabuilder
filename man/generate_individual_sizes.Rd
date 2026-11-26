@@ -16,7 +16,7 @@ generate_individual_sizes(
 Must contain \code{maximal_length_mm} column in fish_batch (species maximum lengths)}
 
 \item{minimum_length_mm}{A numeric value indicating the minimum length for fishes in milimeter.
-Default set to NULL so the minimum is the minimum size found in sanitized data minus 1. See \code{remove_impossible_lengths()}}
+Default set to NULL so the minimum is the minimum size found in sanitized data. See \code{remove_impossible_lengths()}}
 
 \item{seed}{Optional integer for reproducible random number generation}
 
@@ -43,8 +43,8 @@ The function processes each batch type differently:
 \itemize{
 \item Lower bound: Global minimum length (\code{minimum_length_mm})
 \item Upper bound: Species maximum length (\code{max_length_mm})
-\item Mean: Batch minimum length
-\item Standard deviation: (Species max - Batch min) / 4
+\item Mean: Estimated as mid range of the batch (Batch max + Batch min) / 2
+\item Standard deviation: (Batch max - Batch min) / 4
 }
 
 \strong{Type S/L (Size/Length)}: Uses measured individuals to estimate distribution:
