@@ -88,7 +88,7 @@ fish_data <- fish_data |>
   )
 
 # Get coefficient for a specific species
-coeff <- coefficients_fork2total()["PER"]  # Perca fluviatilis
+coeff <- coefficients_fork2total()["PER"] # Perca fluviatilis
 
 # Convert only species with available coefficients
 species_with_coeff <- names(coefficients_fork2total())

@@ -87,7 +87,7 @@ print(sanitized$validation_issues)
 
 # Use with custom thresholds
 sanitized_strict <- sanitize_batch_data(
-  fish_batch_clean, 
+  fish_batch_clean,
   ind_measure_clean,
   min_individuals_G = 10,
   min_individuals_SL = 20

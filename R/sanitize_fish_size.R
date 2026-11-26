@@ -45,7 +45,8 @@ convert_fork_to_total <- function(
 
   required_fish_batch_cols <- c(
     "batch_id", "species_code", "length_type",
-    "min_length", "max_length")
+    "min_length", "max_length"
+  )
   missing_cols <- setdiff(required_fish_batch_cols, names(fish_batch))
   if (length(missing_cols) > 0) {
     stop("fish_batch missing required columns: ", paste(missing_cols, collapse = ", "))
@@ -128,7 +129,7 @@ convert_fork_to_total <- function(
       dplyr::mutate(
         original_size = size,
       )
-    )
+  )
 
   # F. Apply conversion to batch data
   batch_fork <- fish_batch |>
@@ -182,9 +183,10 @@ convert_fork_to_total <- function(
 
 #' Remove biologically impossible fish lengths
 #'
-#' Identifies and removes or flags fish length measurements that exceed known
-#' maximum lengths for the species. Also reconciles batch-level length statistics
-#' with individual measurements for S/L batches.
+#' Identifies and removes or flags fish length measurements that are below
+#' known length for electrofishing and identification or exceed known
+#' maximum lengths for the species. Also reconciles batch-level length
+#' statistics with individual measurements for S/L batches.
 #'
 #' @param ind_measure A data frame containing individual fish measurements.
 #'   Must contain columns: `measure_id`, `batch_id`, `species_code`, `size`.
@@ -193,13 +195,15 @@ convert_fork_to_total <- function(
 #'   `min_length`, `max_length`.
 #' @param species_ref A data frame containing species reference data.
 #'   Must contain columns: `species_code`, `maximal_length_mm`.
+#' @param minimum_length_mm A numeric value indicating the minimum length for fishes in milimeter.
+#'   Default set to 15.
 #' @param remove_outliers Logical. If `TRUE`, replaces impossible lengths with NA.
 #'   If `FALSE`, only flags them. Default is `TRUE`.
 #'
 #' @return A list containing:
 #'   \itemize{
 #'     \item `ind_measure`: Updated individual measurements with flagged/removed outliers
-#'     \item `fish_batch`: Updated batch data with reconciled length statistics
+#'     \item `fish_batch`: Updated batch data with reconciled length statistics and flagged/removed outliers
 #'     \item `outliers`: Data frame of detected outliers
 #'     \item `outlier_summary`: Summary statistics of removed values
 #'   }
@@ -208,13 +212,14 @@ convert_fork_to_total <- function(
 #' The function performs two main validation steps:
 #'
 #' **1. Individual measurement validation**
-#'   - Compares each measurement against species-specific maximum length
-#'   - Flags or removes measurements exceeding the maximum
+#'   - Compares each measurement against species-specific maximum length and
+#'   global minimum length
+#'   - Flags or removes measurements exceeding the minimum or maximum
 #'
-#' **2. Batch-level validation for S/L batches**
+#' **2. Batch-level validation for S/L & G batches**
 #'   - For batches with "S/L" type, recalculates min/max from individual measurements
 #'   - Ensures batch-level statistics are consistent with individual data
-#'   - Validates batch min/max against species maximum lengths
+#'   - For batches with "S/L" or "G" type, flags or removes batch min/max exceeding global minimum length or species maximum lengths
 #'
 #' @importFrom dplyr filter left_join group_by summarise mutate bind_rows
 #' @importFrom rlang .data
@@ -223,12 +228,14 @@ remove_impossible_lengths <- function(
   ind_measure,
   fish_batch,
   species_ref,
+  minimum_length_mm = 15,
   remove_outliers = TRUE
 ) {
   # Input validation
   if (!is.data.frame(ind_measure)) stop("ind_measure must be a data frame")
   if (!is.data.frame(fish_batch)) stop("fish_batch must be a data frame")
   if (!is.data.frame(species_ref)) stop("species_ref must be a data frame")
+  if (!is.numeric(minimum_length_mm)) stop("minimum_length_mm must be numeric")
 
   required_ind_cols <- c("measure_id", "batch_id", "species_code", "size")
   missing_ind <- setdiff(required_ind_cols, names(ind_measure))
@@ -236,8 +243,10 @@ remove_impossible_lengths <- function(
     stop("ind_measure missing columns: ", paste(missing_ind, collapse = ", "))
   }
 
-  required_batch_cols <- c("batch_id", "species_code", "batch_type",
-                           "min_length", "max_length")
+  required_batch_cols <- c(
+    "batch_id", "species_code", "batch_type",
+    "min_length", "max_length"
+  )
   missing_batch <- setdiff(required_batch_cols, names(fish_batch))
   if (length(missing_batch) > 0) {
     stop("fish_batch missing columns: ", paste(missing_batch, collapse = ", "))
@@ -255,6 +264,11 @@ remove_impossible_lengths <- function(
       dplyr::select(species_ref, species_code, maximal_length_mm),
       by = "species_code"
     )
+  fish_batch <- fish_batch |>
+    dplyr::left_join(
+      dplyr::select(species_ref, species_code, maximal_length_mm),
+      by = "species_code"
+    )
 
   # Check for missing max lengths
   missing_max <- ind_measure |>
@@ -263,34 +277,64 @@ remove_impossible_lengths <- function(
     unique()
 
   if (length(missing_max) > 0) {
-    warning("Missing maximal length for species: ",
-            paste(missing_max, collapse = ", "))
+    warning(
+      "Missing maximal length for species: ",
+      paste(missing_max, collapse = ", ")
+    )
   }
 
   # B. Identify outliers
-  outliers <- ind_measure |>
-    dplyr::filter(!is.na(size), !is.na(maximal_length_mm),
-                  size > maximal_length_mm)
+  outliers_ind <- ind_measure |>
+    dplyr::filter(
+      !is.na(size), !is.na(maximal_length_mm),
+      (size > maximal_length_mm | size < minimum_length_mm)
+    )
+  outliers_batch <- fish_batch |>
+    dplyr::filter(
+      !is.na(min_length), !is.na(max_length), !is.na(maximal_length_mm),
+      (min_length > maximal_length_mm | max_length > maximal_length_mm |
+        min_length < minimum_length_mm | max_length < minimum_length_mm
+      )
+    )
+
 
   # C. Handle outliers
   if (remove_outliers) {
     ind_measure_cleaned <- ind_measure |>
       dplyr::mutate(
         size = dplyr::if_else(
-          size > maximal_length_mm & !is.na(maximal_length_mm),
+          (size > maximal_length_mm | size < minimum_length_mm) & !is.na(maximal_length_mm),
           NA_real_,
           size
         )
       )
+    fish_batch_cleaned <- fish_batch |>
+      dplyr::mutate(
+        min_length = dplyr::if_else(
+          (min_length > maximal_length_mm | min_length < minimum_length_mm) &
+            !is.na(minimum_length_mm) & !is.na(maximal_length_mm),
+          NA_real_,
+          min_length
+        ),
+        max_length = dplyr::if_else(
+          (max_length > maximal_length_mm | max_length < minimum_length_mm) &
+            !is.na(minimum_length_mm) & !is.na(maximal_length_mm),
+          NA_real_,
+          max_length
+        )
+      )
 
-    outlier_summary <- outliers |>
+
+    outlier_summary <- outliers_ind |>
       dplyr::group_by(species_code) |>
       dplyr::summarise(
         n_outliers = dplyr::n(),
-        mean_excess_mm = mean(size - maximal_length_mm, na.rm = TRUE)
+        mean_excess_mm = mean(size - maximal_length_mm, na.rm = TRUE),
+        mean_lack_mm = mean(size - minimum_length_mm, na.rm = TRUE),
       )
   } else {
     ind_measure_cleaned <- ind_measure
+    fish_batch_cleaned <- fish_batch
     outlier_summary <- data.frame()
   }
 
@@ -318,7 +362,7 @@ remove_impossible_lengths <- function(
       ) |>
       dplyr::select(-min_size, -max_size)
 
-    fish_batch_updated <- fish_batch |>
+    fish_batch_updated <- fish_batch_cleaned |>
       dplyr::filter(batch_type != "S/L") |>
       dplyr::bind_rows(sl_batches_updated)
   } else {
@@ -326,16 +370,12 @@ remove_impossible_lengths <- function(
   }
 
   # E. Validate batch-level outliers
-  fish_batch_updated <- fish_batch_updated |>
-    dplyr::left_join(
-      dplyr::select(species_ref, species_code, maximal_length_mm),
-      by = "species_code"
-    )
-
   batch_outliers <- fish_batch_updated |>
     dplyr::filter(
       (max_length > maximal_length_mm & !is.na(max_length)) |
-      (min_length > maximal_length_mm & !is.na(min_length))
+        (min_length > maximal_length_mm & !is.na(min_length)) |
+        (max_length < minimum_length_mm & !is.na(min_length)) |
+        (min_length < minimum_length_mm & !is.na(min_length))
     )
 
   if (nrow(batch_outliers) > 0) {
@@ -346,7 +386,7 @@ remove_impossible_lengths <- function(
   list(
     ind_measure = ind_measure_cleaned |> dplyr::select(-maximal_length_mm),
     fish_batch = fish_batch_updated |> dplyr::select(-maximal_length_mm),
-    outliers = outliers,
+    outliers = outliers_ind,
     outlier_summary = outlier_summary,
     batch_outliers = batch_outliers
   )
@@ -510,8 +550,10 @@ build_conversion_coefficients <- function(
   # Check for missing species
   missing_species <- setdiff(species_fork$species_code, all_coeffs$species_code)
   if (length(missing_species) > 0 && verbose) {
-    warning("No conversion coefficients for species: ",
-            paste(missing_species, collapse = ", "))
+    warning(
+      "No conversion coefficients for species: ",
+      paste(missing_species, collapse = ", ")
+    )
   }
 
   # Validate coefficients
@@ -520,8 +562,10 @@ build_conversion_coefficients <- function(
       warning("Non-positive slope coefficients detected")
     }
     if (any(all_coeffs$b > 1.2, na.rm = TRUE)) {
-      warning("Unusually large slope coefficients found: ",
-        paste(all_coeffs$b[all_coeffs$b > 1.2], collapse = ", "))
+      warning(
+        "Unusually large slope coefficients found: ",
+        paste(all_coeffs$b[all_coeffs$b > 1.2], collapse = ", ")
+      )
     }
   }
   list(
@@ -609,7 +653,7 @@ build_conversion_coefficients <- function(
 #'   )
 #'
 #' # Get coefficient for a specific species
-#' coeff <- coefficients_fork2total()["PER"]  # Perca fluviatilis
+#' coeff <- coefficients_fork2total()["PER"] # Perca fluviatilis
 #'
 #' # Convert only species with available coefficients
 #' species_with_coeff <- names(coefficients_fork2total())
@@ -623,25 +667,25 @@ build_conversion_coefficients <- function(
 #' @export
 coefficients_fork2total <- function() {
   c(
-    ALA = 1/.91,  # Fishbase: https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Alalo_u1.gif&genusname=Alosa&speciesname=alosa&id=101
-    LOF =  1,     # Tail rect, minor difference
-    LPP = 1,      # Tail rect no difference https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lapla_u3.jpg&genusname=Lampetra&speciesname=planeri&id=4481
-    CHE = 1/.940, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lecep_u2.jpg&genusname=Squalius&speciesname=cephalus&id=4482
+    ALA = 1 / .91, # Fishbase: https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Alalo_u1.gif&genusname=Alosa&speciesname=alosa&id=101
+    LOF =  1, # Tail rect, minor difference
+    LPP = 1, # Tail rect no difference https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lapla_u3.jpg&genusname=Lampetra&speciesname=planeri&id=4481
+    CHE = 1 / .940, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Lecep_u2.jpg&genusname=Squalius&speciesname=cephalus&id=4482
     # Fishbase taken from Leuciscus leuciscus which is very close:
     # https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
-    VAR = 1/.919,
-    MUP = 1.070,  # Chelon ramada is the valid synonym: https://www.fishbase.se/popdyn/LLRelationshipList.php?ID=4583&GenusName=Chelon&SpeciesName=ramada&fc=359
-    GTN = 1.0,    # Fisbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nemel_u3.gif&genusname=Neogobius&speciesname=melanostomus&id=12019
-    TAC = 1/.982, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Onmyk_m1.jpg&genusname=Oncorhynchus&speciesname=mykiss&id=239
-    PAP = 1/.927, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Papic_u2.jpg&genusname=Pachychilon&speciesname=pictum&id=26627
+    VAR = 1 / .919,
+    MUP = 1.070, # Chelon ramada is the valid synonym: https://www.fishbase.se/popdyn/LLRelationshipList.php?ID=4583&GenusName=Chelon&SpeciesName=ramada&fc=359
+    GTN = 1.0, # Fisbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nemel_u3.gif&genusname=Neogobius&speciesname=melanostomus&id=12019
+    TAC = 1 / .982, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Onmyk_m1.jpg&genusname=Oncorhynchus&speciesname=mykiss&id=239
+    PAP = 1 / .927, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Papic_u2.jpg&genusname=Pachychilon&speciesname=pictum&id=26627
     # Fishbase taken from Leuciscus leuciscus which is very close:
     # https://fishbase.se/physiology/MorphMetSummaryV2.php?picname=Leleu_u1.jpg&genusname=Leuciscus&speciesname=leuciscus&id=4662
-    TOX = 1/.919,
-    PER = 1/.953, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Peflu_u0.gif&genusname=Perca&speciesname=fluviatilis&id=358
-    GKS = 1.0,    # Tail rect no difference: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nekes_u0.jpg&genusname=Ponticola&speciesname=kessleri&id=25977
-    GDL = 1.0,    # Tail rect no difference: https://fishbase.se/photos/ThumbnailsSummary.php?ID=65128
-    SAN = 1/.936, # https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Saluc_u2.jpg&genusname=Sander&speciesname=lucioperca&id=360
-    APR = 1.0     # Tail almost rect, no difference measured for Zingel genra in Fishbase (Z. streber, Z. Zingel)
+    TOX = 1 / .919,
+    PER = 1 / .953, # Fishbase: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Peflu_u0.gif&genusname=Perca&speciesname=fluviatilis&id=358
+    GKS = 1.0, # Tail rect no difference: https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Nekes_u0.jpg&genusname=Ponticola&speciesname=kessleri&id=25977
+    GDL = 1.0, # Tail rect no difference: https://fishbase.se/photos/ThumbnailsSummary.php?ID=65128
+    SAN = 1 / .936, # https://www.fishbase.se/physiology/MorphMetSummaryV2.php?picname=Saluc_u2.jpg&genusname=Sander&speciesname=lucioperca&id=360
+    APR = 1.0 # Tail almost rect, no difference measured for Zingel genra in Fishbase (Z. streber, Z. Zingel)
   )
 }
 #' Sanitize fish size measurements (deprecated)
